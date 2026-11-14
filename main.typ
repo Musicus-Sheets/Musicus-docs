@@ -3,7 +3,7 @@
 #show: project.with(
   title: "Musicus",
   subtitle: "Technical documentation: architecture and components",
-  version: "Describes Musicus 0.1 (first implementation of concept A)",
+  version: "Describes Musicus 0.1 (first implementation)",
 )
 
 #include "chapters/01-introduction.typ"

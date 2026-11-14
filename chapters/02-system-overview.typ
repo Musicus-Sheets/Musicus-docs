@@ -70,8 +70,8 @@ the server keeps on disk. @fig-context shows them at run time.
   One process with an embedded database instead of separate services
   (application server, database server, object store) keeps the memory
   footprint around 11 MB at idle and makes installation and backup trivial on
-  a Raspberry Pi (R7). The measurements behind this choice are in the concept
-  document; the reasoning is in @d-monolith and @d-sqlite.
+  a Raspberry Pi (R7). The measurements behind this choice come from the benchmarks in
+  `prototypes/`; the reasoning is in @d-monolith and @d-sqlite.
 ]
 
 == Compile-time dependencies

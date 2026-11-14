@@ -20,8 +20,8 @@ the introduction.
    The measured load (120 simultaneous downloads of a 3 MB file in 0.2 s on
    one core) is far below what one process can handle.],
   [No high availability; scaling means a bigger machine. The domain logic
-   uses plain SQL through sqlx, so moving to PostgreSQL (concept variant
-   A-PG) touches the `db` unit and the SQL dialect, not the architecture.],
+   uses plain SQL through sqlx, so moving to PostgreSQL (evaluated as
+   variant A-PG) touches the `db` unit and the SQL dialect, not the architecture.],
 )
 
 == SQLite with one writer connection <d-sqlite>

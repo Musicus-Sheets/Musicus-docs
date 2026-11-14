@@ -59,6 +59,6 @@ because many decisions in this document refer back to them.
   [`e2e/`], [Browser smoke test (Playwright).],
   [`scripts/fetch-pdfjs.sh`], [Downloads the pinned pdf.js build into the client's `public/` folder.],
   [`Dockerfile`, `compose.yaml`, `deploy/`], [Container image, Compose setup, Caddy configuration.],
-  [`prototypes/`], [Throw-away benchmarks that validated the concept. Not part of the product.],
+  [`prototypes/`], [Throw-away benchmarks that validated the design. Not part of the product.],
   [`docs/technical/`], [This document (a git submodule).],
 )

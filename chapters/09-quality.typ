@@ -25,7 +25,7 @@ without opening a port, so they run in parallel and need no set-up.
 
 == Prototypes
 
-`prototypes/` contains the benchmarks that tested the concept's
+`prototypes/` contains the benchmarks that tested the design's
 assumptions (burst downloads, access check cost, annotation sizes, Argon2
 cost, hayro speed and size, SQLite versus PostgreSQL). They are not built
 with the workspace and not part of the product; they are kept so the
