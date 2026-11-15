@@ -71,7 +71,8 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   table.cell(colspan: 2, fill: luma(240))[*Library*],
   [`scores`], [The work or arrangement: title, subtitle, composer, arranger, genre, tags (JSON array), notes.],
   [`score_fts`], [FTS5 full-text index over the score metadata, kept in sync by triggers.],
-  [`parts`], [One sheet of a score: label ("2nd Trumpet in Bb"), voice, transposition, notes.],
+  [`parts`], [One sheet of a score: optional custom name (`label`), voice (free text, e.g. "2" or "1a"), key (code from a fixed list, e.g. `Bb`), notes. Without a custom name the part is named after its instruments, key and voice ("Trumpet in B♭ 2").],
+  [`part_fts`], [FTS5 index of the shown name of every part, written by the server because the name depends on instrument names.],
   [`part_instruments`], [Instruments a part serves; a part may serve several ("Flute / Piccolo").],
   [`files`], [One row per stored blob: hash, MIME type, size, page count, thumbnail hash.],
   [`part_files`], [File versions of a part (1, 2, ...). The highest version is current.],
@@ -101,7 +102,15 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   through primary-key lookups only.
 - *Full-text search* uses `unicode61 remove_diacritics 2`, so "Fucik" finds
   "Fučík". The query builder quotes every word and appends `*` (prefix
-  search), so user input can never be interpreted as FTS operators.
+  search), so user input can never be interpreted as FTS operators. Every
+  word must match either the score's metadata (`score_fts`) or the name of
+  a part of it the user may read (`part_fts`), so "fucik trumpet" works and
+  nobody finds a piece through a part they cannot see.
+- *Migration 0002* made the part label optional and the voice text, and
+  converted unambiguous key spellings ("in Bb", "Es") to codes. Existing
+  labels became custom names, so existing parts keep their names; key values
+  that are ambiguous ("B" is B♭ in German) or unknown stay unchanged and can
+  still be saved.
 
 #why[
   Annotation layers are stored in the database, not in the blob store: they

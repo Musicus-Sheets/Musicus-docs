@@ -14,6 +14,7 @@ It has two sub units that do not depend on each other:
   [Unit], [Purpose],
   [`dto`], [Plain data types of the REST API (Data Transfer Objects) plus a few constants.],
   [`ink`], [The annotation model, its binary encoding, validation, and the three-way merge.],
+  [`naming`], [Names of parts derived from instruments, key and voice; the fixed list of keys.],
 )
 
 #why[
@@ -54,6 +55,22 @@ Notable details:
 - Lists that are replaced as a whole (group members, grants, programme
   pieces) are sent as `IdList` with `PUT`, which makes these operations
   idempotent.
+
+== Unit `naming`
+
+A part is named after what it is: its instruments (alphabetical, joined
+with " / "), " in " and its key, then its voice, e.g. "Trumpet in B♭ 1",
+"Horn in F 3a" or "Flute / Piccolo". A part without instrument, key and
+voice is an "Unnamed part". An optional custom name replaces the derived
+name. The server computes the name (`Part.display_name`) on every read, so
+renaming an instrument renames its parts; the web client uses the same
+function only to preview the name while a part is edited.
+
+Keys come from a fixed list, stored as ASCII codes and shown with
+accidentals: B♭ (`Bb`), E♭, F, C, A, D, G, E, A♭, D♭, G♭ and B♮ (`H`).
+B natural uses the German letter because a stored "B" is ambiguous (B♭ in
+German). The server also accepts common spellings ("B-flat", "in Es") and
+rejects anything else.
 
 == Unit `ink`
 

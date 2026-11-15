@@ -182,7 +182,9 @@ The reader is the most involved page. It has three layers stacked in the
 === Management in the regular views
 
 `forms` holds the pieces every editor shares: the score fields, the
-instrument picker, the editor of an existing part (fields, upload or
+instrument picker, the part fields (key from a selection list, free-text
+voice, optional custom name whose placeholder is the derived name, and the
+resulting name shown live), the editor of an existing part (fields, upload or
 replacement of the PDF, list of file versions, deletion) and the form that
 adds a new part. A PDF upload reads the file in the browser and sends it as
 the raw request body.
