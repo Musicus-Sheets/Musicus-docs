@@ -14,6 +14,7 @@ through the REST API. It keeps no data on the device (R4).
   [Unit], [Purpose],
   [`main`], [Start-up, the route table (`Route`), the `Session` context (who is logged in), the global stylesheet.],
   [`ui`], [The page frame `Shell` (navigation, login guard), the role helpers `can_manage`/`is_admin`, and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
+  [`picker`], [The assignment picker used wherever entries are assigned (group members and grants, part instruments, programme pieces): assigned entries as removable chips and a dropdown with search and multi-selection.],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
   [`bridge` + `js/bridge.js`], [Everything browsers offer only in JavaScript: pdf.js rendering, the in-memory sheet cache, the wake lock, fullscreen, clipboard, and sending unsaved annotations when the tab closes.],
   [`ink`], [Draws annotation layers on a canvas, converts between page and pixel coordinates, hit-tests the eraser.],
@@ -181,7 +182,9 @@ The reader is the most involved page. It has three layers stacked in the
 === Management in the regular views
 
 `forms` holds the pieces every editor shares: the score fields, the
-instrument checkboxes, the editor of an existing part (fields, upload or
+instrument picker, the part fields (key from a selection list, free-text
+voice, optional custom name whose placeholder is the derived name, and the
+resulting name shown live), the editor of an existing part (fields, upload or
 replacement of the PDF, list of file versions, deletion) and the form that
 adds a new part. A PDF upload reads the file in the browser and sends it as
 the raw request body.
@@ -201,3 +204,32 @@ librarians add, rename and delete them (a refused deletion of an
 instrument still in use is shown as a message). `groups` edits members and
 grants, `users` creates accounts with invite links (copied to the
 clipboard and sent by the admin, since the server sends no e-mail).
+
+=== Assignment picker
+
+Lists with one checkbox per existing user, instrument or piece do not scale.
+`picker` replaces them with one component: the assigned entries are shown
+as chips with a remove button, and a button opens a dropdown with a search
+field (focused on open) over the remaining entries. The search ignores case
+and diacritics (the text is normalised with `String.prototype.normalize`
+and combining marks are dropped) and matches every word of the query
+against all shown text, e.g. display name and username, instrument and
+family, title and composer. Ticking does not close the dropdown; closing it
+in any way (a tap or click outside, Escape, the "Add" button) hands the
+ticked entries to the caller in the order they were ticked. There is no
+cancel action, so no way of closing loses a selection by surprise. A
+transparent backdrop catches the outside click, so that click only closes
+the dropdown and never also triggers the control below it while the change
+is being saved. On phone-width screens the dropdown is a sheet below the top
+bar, out of the way of the on-screen keyboard.
+
+The callers decide when to save. The group editor saves each list (members,
+instrument grants, score grants) as soon as it changes, with the existing
+endpoints that replace a list as a whole, and restores the previous list if
+the server refuses; it has no Save button. The part editor saves instrument
+changes immediately as well; because `PUT /api/parts/{id}` replaces all
+fields of a part, it sends the last saved label, voice and key with them,
+and those fields keep their own Save button. The form for a new part and the
+programme editor keep the selection in the form until it is submitted; the
+programme picker keeps pieces that are already in the programme selectable,
+since a piece may be played twice.
