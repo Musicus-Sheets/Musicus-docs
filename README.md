@@ -10,20 +10,28 @@ This repository is included in the main repository as the git submodule
 ## Build
 
 ```sh
-cargo install --locked typst-cli    # or your package manager's typst
-typst compile main.typ musicus-technical.pdf
-typst watch main.typ                # rebuild on every change
+./build.sh          # → out/musicus-technical.pdf and out/musicus-technical.html
 ```
 
-The first build downloads the `fletcher` diagram package from the Typst package
-registry (network needed once).
+The PDF is the main format (A4, for reading and printing); the HTML page is a
+self-contained second format with a navigation sidebar and dark mode. Both come
+from the same source. Requires `typst` (tested with 0.15;
+`cargo install --locked typst-cli`); the HTML export of Typst is still marked
+experimental, hence `--features html`. The first build downloads the `fletcher`
+diagram package from the Typst package registry (network needed once).
+
+The layout follows the user guide: the Inter font (SIL Open Font License,
+`fonts/Inter-LICENSE.txt`) is bundled so the PDF looks the same everywhere;
+code uses DejaVu Sans Mono, which Typst embeds itself.
 
 ## Structure
 
 | File | Content |
 | --- | --- |
 | `main.typ` | Entry point, includes the chapters |
-| `template.typ` | Page layout and helpers (`why`, `note`, `decision`, `box-node`) |
+| `template.typ` | Layout for both outputs and helpers: `why`, `note`, `decision`, `diagram` (fletcher, fitted to the page; SVG in HTML), `box-node`; HTML stylesheet |
+| `build.sh` | Builds PDF and HTML into `out/` |
+| `fonts/` | Bundled Inter font |
 | `chapters/01-introduction.typ` | Purpose, audience, requirements, repository layout |
 | `chapters/02-system-overview.typ` | Components and how they interact |
 | `chapters/03-api-crate.typ` | Shared crate `musicus-api` (`dto`, `ink`) |

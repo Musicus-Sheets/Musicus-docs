@@ -53,8 +53,8 @@ the introduction.
   [sqlx 0.9 accepts only `&'static str` queries unless they are explicitly
    marked as safe. Keeping all SQL static makes SQL injection impossible by
    construction and keeps the code reviewable.],
-  [Some queries read slightly unusually (`IN (SELECT value FROM
-   json_each(?3))`). The access rule is a macro, not a function.],
+  [Some queries read slightly unusually 
+   (`IN (SELECT value FROM json_each(?3))`). The access rule is a macro, not a function.],
 )
 
 == Content-addressed, immutable file store <d-blobs>
