@@ -285,3 +285,22 @@ the introduction.
    or curl is available. Debugging inside the container needs a separate
    debug image.],
 )
+
+== Management inside the regular views <d-inline-management>
+
+#decision(
+  [Administrative functions are often collected in a separate admin area
+   with its own lists of everything.],
+  [Musicus has no management area. The library, programme and instrument
+   views are the same for every role; for librarians and admins they add
+   "Add piece", "Edit" on every piece and part, "New programme", "Edit" on a
+   programme and instrument editing. Groups and users have their own tabs.],
+  [Librarians work where the music is: they find a piece the way musicians
+   do and edit it there, instead of looking it up a second time in another
+   list. One set of views is easier to learn, to document and to support,
+   and members see exactly what librarians see, minus the controls.],
+  [Every view must check the role before showing a control. This is
+   convenience only: the server checks every request, so a hidden button
+   is never the protection. New management functions belong next to the
+   content they change.],
+)

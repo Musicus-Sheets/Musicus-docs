@@ -38,7 +38,7 @@ the server keeps on disk. @fig-context shows them at run time.
   [13 modules, see @server],
 
   [`musicus-web`],
-  [The user interface in the browser: login, library, programmes, the sheet reader with the drawing tools, and the management pages. Talks to the server only through the REST API.],
+  [The user interface in the browser: login, library, programmes, the instrument list, and the sheet reader with the drawing tools; librarians and admins find their management controls in the same views. Talks to the server only through the REST API.],
   [7 modules + `bridge.js`, see @client],
 
   [SQLite database],

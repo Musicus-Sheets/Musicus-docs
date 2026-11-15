@@ -13,14 +13,15 @@ through the REST API. It keeps no data on the device (R4).
   columns: (auto, 1fr),
   [Unit], [Purpose],
   [`main`], [Start-up, the route table (`Route`), the `Session` context (who is logged in), the global stylesheet.],
-  [`ui`], [The page frame `Shell` (navigation, login guard) and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
+  [`ui`], [The page frame `Shell` (navigation, login guard), the role helpers `can_manage`/`is_admin`, and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
   [`bridge` + `js/bridge.js`], [Everything browsers offer only in JavaScript: pdf.js rendering, the in-memory sheet cache, the wake lock, fullscreen, clipboard, and sending unsaved annotations when the tab closes.],
   [`ink`], [Draws annotation layers on a canvas, converts between page and pixel coordinates, hit-tests the eraser.],
   [`pages::login`, `account`], [Login, invite acceptance, password change, device list.],
-  [`pages::library`, `programmes`], [Score list with search and thumbnails; concert programmes with prefetch.],
+  [`pages::library`, `programmes`, `instruments`], [Score list with search and thumbnails; concert programmes with prefetch; the instrument list. For librarians and admins the same pages carry the management controls.],
+  [`pages::score_edit`, `programme_edit`, `forms`], [Editors opened from those pages: the guided flow for a new piece, the edit views of a piece and of a part (with PDF upload and versions), the programme editor, and the form pieces they share.],
+  [`pages::groups`, `users`], [Groups with members and grants (librarians and admins); user accounts with invite links (admins).],
   [`pages::viewer`], [The sheet reader with drawing tools and annotation sets.],
-  [`pages::manage`], [Management: scores, parts and uploads, programmes, instruments, groups and grants, users.],
 )
 
 #figure(
@@ -28,7 +29,7 @@ through the REST API. It keeps no data on the device (R4).
     spacing: (10mm, 9mm),
     box-node((1.5, 0), [`main` \ `Route`, `Session`], name: <main>),
     box-node((1.5, 1), [`ui::Shell`], name: <shell>),
-    box-node((0, 2), [`login`, `account`, \ `library`, `programmes`, \ `manage`], name: <pages>, fill: rgb("#eef3ff")),
+    box-node((0, 2), [`library`, `programmes`, \ `instruments`, editors, \ `groups`, `users`, …], name: <pages>, fill: rgb("#eef3ff")),
     box-node((3, 2), [`viewer`], name: <viewer>, fill: rgb("#eef3ff")),
     box-node((0, 3.3), [`api`], name: <api>),
     box-node((1.5, 3.3), [`bridge` (Rust)], name: <bridge>),
@@ -62,11 +63,18 @@ the answer arrived). All pages read the logged-in user from this context.
 The `Route` enum maps URLs to page components. Most routes render inside
 `ui::Shell` (navigation bar); the reader routes (`/parts/:id` and
 `/programmes/:pid/parts/:id`) render full-screen without it. `Shell`
-redirects to `/login` when the session check found no user and shows the
-"Manage" entry only to librarians and admins.
+redirects to `/login` when the session check found no user. Its navigation
+shows Library, Programmes and Instruments to everyone, Groups to librarians
+and admins, and Users to admins.
 
-The server also enforces every permission; hiding menu entries is only
-convenience.
+There is no separate management area (@d-inline-management): the library,
+programme and instrument pages ask `ui::can_manage()` and add their
+controls ("Add piece", "Edit" on pieces and parts, "New programme", "Edit"
+on a programme, instrument editing) for librarians and admins; the editors
+have their own routes such as `/scores/new`, `/scores/:id/edit`,
+`/parts/:id/edit` and `/programmes/:id/edit`. Old `/manage` links redirect
+to the library. The server also enforces every permission; hiding controls
+is only convenience.
 
 == Server access: `api`
 
@@ -170,11 +178,26 @@ The reader is the most involved page. It has three layers stacked in the
   components for each would add visible latency.
 ]
 
-=== Management (`manage`)
+=== Management in the regular views
 
-Forms over the management endpoints: score metadata and parts (with
-instrument checkboxes and PDF upload, which reads the file in the browser
-and sends it as the raw request body), programmes with ordering, the
-instrument vocabulary, groups with members and grants, and users with
-invite links (copied to the clipboard and sent by the librarian, since the
-server sends no e-mail).
+`forms` holds the pieces every editor shares: the score fields, the
+instrument checkboxes, the editor of an existing part (fields, upload or
+replacement of the PDF, list of file versions, deletion) and the form that
+adds a new part. A PDF upload reads the file in the browser and sends it as
+the raw request body.
+
+`score_edit` contains the guided flow for a new piece: step 1 creates the
+score from its details, step 2 adds parts one after another. Each new part
+is created first and its PDF is then uploaded in a background task, so the
+librarian can type the next part while the upload runs; every added part
+shows its upload state, and "Finish" waits for running uploads. The flow
+ends in the library, where the new piece is highlighted (a memory-only
+global signal, `FOCUS_SCORE`). The same module has the edit views of a
+piece and of a single part.
+
+`programme_edit` edits title, date, notes and the ordered pieces of a
+programme; `instruments` lists the instruments by family and lets
+librarians add, rename and delete them (a refused deletion of an
+instrument still in use is shown as a message). `groups` edits members and
+grants, `users` creates accounts with invite links (copied to the
+clipboard and sent by the admin, since the server sends no e-mail).
