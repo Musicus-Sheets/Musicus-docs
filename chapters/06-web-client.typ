@@ -14,6 +14,7 @@ through the REST API. It keeps no data on the device (R4).
   [Unit], [Purpose],
   [`main`], [Start-up, the route table (`Route`), the `Session` context (who is logged in), the global stylesheet.],
   [`ui`], [The page frame `Shell` (navigation, login guard), the role helpers `can_manage`/`is_admin`, and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
+  [`tag_input`], [Tag entry: finished tags as chips like in the library, one text field between them as the caret.],
   [`picker`], [The assignment picker used wherever entries are assigned (group members and grants, part instruments, programme pieces): assigned entries as removable chips and a dropdown with search and multi-selection.],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
   [`bridge` + `js/bridge.js`], [Everything browsers offer only in JavaScript: pdf.js rendering, the in-memory sheet cache, the wake lock, fullscreen, clipboard, and sending unsaved annotations when the tab closes.],
@@ -181,7 +182,8 @@ The reader is the most involved page. It has three layers stacked in the
 
 === Management in the regular views
 
-`forms` holds the pieces every editor shares: the score fields, the
+`forms` holds the pieces every editor shares: the score fields (tags
+through `tag_input`), the
 instrument picker, the part fields (key from a selection list, free-text
 voice, optional custom name whose placeholder is the derived name, and the
 resulting name shown live), the editor of an existing part (fields, upload or
@@ -233,3 +235,17 @@ and those fields keep their own Save button. The form for a new part and the
 programme editor keep the selection in the form until it is submitted; the
 programme picker keeps pieces that are already in the programme selectable,
 since a piece may be played twice.
+
+=== Tag entry
+
+Tags are typed into one ordinary text field and become chips when a comma
+or Enter is typed (Enter never submits the form), when the field is left,
+or when a comma arrives through the input event, which is how Android
+keyboards and pasting deliver it. The chips are plain elements that cannot
+be edited. The text field itself is the caret: while it is empty, the arrow
+keys move it between the chips, and Backspace or Delete at its edges remove
+the neighbouring chip. A field with editable content (`contenteditable`)
+with non-editable chips inside was rejected: browsers and mobile keyboards
+differ too much in how the caret moves around such islands. The chips before
+and after the text field are rendered as two lists around it, so adding or
+moving chips never moves the focused field.
