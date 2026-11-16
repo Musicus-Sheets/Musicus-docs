@@ -77,6 +77,7 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   [`files`], [One row per stored blob: hash, MIME type, size, page count, thumbnail hash.],
   [`part_files`], [File versions of a part (1, 2, ...). The highest version is current.],
   [`file_layouts`], [Music systems of every page of a file (JSON), the algorithm version and state (done / failed); written by the layout worker (@system-view). No row: not analysed yet.],
+  [`layout_corrections`], [A librarian's correction of one page of a file: cut lines, band kinds and the whole-page flag (JSON), who and when. Applied when the layout is served; never changed by the detection.],
   table.cell(colspan: 2, fill: luma(240))[*Programmes*],
   [`programmes`, `programme_items`], [A concert (title, date, notes) and its pieces in order. A piece may appear twice (encore).],
   table.cell(colspan: 2, fill: luma(240))[*Annotations (private)*],

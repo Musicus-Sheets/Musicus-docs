@@ -316,6 +316,8 @@ file at a time on a blocking thread, newest first, and stores the music
 systems of every page in `file_layouts`; files without a current layout
 (also all files after an update of the algorithm) are picked up after the
 start. `GET /api/files/{sha256}/layout` serves the result to everyone who
-may read the file; it is `pending` until then. The algorithm is described in
+may read the file, with librarians' corrections (`layout_corrections`)
+applied; it is `pending` until then. Librarians correct a page with `PUT`
+and reset it with `DELETE` on `/api/files/{sha256}/layout/pages/{page}`. The algorithm is described in
 @system-view; `PUT /api/auth/reader-settings` stores a user's reader mode
 and staff size.

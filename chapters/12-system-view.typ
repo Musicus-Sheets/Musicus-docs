@@ -111,7 +111,7 @@ Every constant is named in `layout/detect.rs`; the agent documentation
   runs score $"length" \/ (1 + "distance to the staff" \/ 8 d)$; runs
   touching the page edge (or a scanner border) only count if there is no
   other. Ink above the cut is the header (title, composer), below it the
-  footer (copyright, page number). Ink that starts within $2.5 d$ below the
+  footer (copyright, page number). Ink that starts within $4 d$ below the
   last staff (an 8vb line, low notes) stays with the last system, up to the
   next ink-free run of $1 d$ (`FOOTER_ATTACH_SPACES`).
 + *Regions.* Bands are contiguous; each carries cut lines, ink extent,
@@ -236,6 +236,25 @@ sheets, so the system view needs no network on stage.
 
 While a file is `pending` or `failed`, or its page count differs from the
 PDF, the reader shows whole pages with a short note.
+
+== Corrections by librarians
+
+The detection can be wrong on unusual layouts. A librarian opens
+#strong[Edit part → Edit systems] and sees each page with its bands. A band
+can be split (a new cut line in its middle, then dragged), two bands joined
+by removing the cut between them, a cut line moved by dragging (or with the
+arrow keys), the kind of a band set to system, header, footer or hidden, and
+a page marked to be shown whole.
+
+A correction is stored per file and page (`layout_corrections`) as the
+complete list of cut lines and band kinds, and applied whenever the layout is
+served: per band, the horizontal extent and the ink come from the detected
+bands it overlaps, the staff count and staff size from the detected systems
+it overlaps (so the minimum staff size still works). The detection never
+touches corrections, so they survive a new detection run; a new file
+version starts uncorrected. A correction applies to every member, because
+all of them read the same file. `PUT` and `DELETE` on
+`/api/files/{sha256}/layout/pages/{page}` are for librarians only.
 
 == Limits
 

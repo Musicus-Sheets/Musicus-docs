@@ -24,6 +24,7 @@ through the REST API. It keeps no data on the device (R4).
   [`pages::login`, `account`], [Login, invite acceptance, password change, device list.],
   [`pages::library`, `programmes`, `instruments`], [Score list with search and thumbnails; concert programmes with prefetch; the instrument list. For librarians and admins the same pages carry the management controls.],
   [`pages::score_edit`, `programme_edit`, `forms`], [Editors opened from those pages: the guided flow for a new piece, the edit views of a piece and of a part (with PDF upload and versions), the programme editor, and the form pieces they share.],
+  [`pages::layout_edit`], [Librarians correct the detected systems of a part's file, page by page (@system-view).],
   [`pages::groups`, `users`], [Groups with members and grants (librarians and admins); user accounts with invite links (admins).],
   [`pages::viewer`], [The sheet reader with drawing tools and annotation sets; page view or system view (@system-view).],
 )
