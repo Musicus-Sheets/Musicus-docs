@@ -14,6 +14,7 @@ through the REST API. It keeps no data on the device (R4).
   [Unit], [Purpose],
   [`main`], [Start-up, the route table (`Route`), the `Session` context (who is logged in), the global stylesheet.],
   [`ui`], [The page frame `Shell` (navigation, login guard), the role helpers `can_manage`/`is_admin`, and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
+  [`suggest`], [Suggestions while typing (tags, instrument families): a small list of matching known values.],
   [`tag_input`], [Tag entry: finished tags as chips like in the library, one text field between them as the caret.],
   [`picker`], [The assignment picker used wherever entries are assigned (group members and grants, part instruments, programme pieces): assigned entries as removable chips and a dropdown with search and multi-selection.],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
@@ -249,3 +250,11 @@ with non-editable chips inside was rejected: browsers and mobile keyboards
 differ too much in how the caret moves around such islands. The chips before
 and after the text field are rendered as two lists around it, so adding or
 moving chips never moves the focused field.
+
+While a tag or an instrument family is typed, `suggest` shows the known
+values that match, ignoring case and diacritics, those starting with the
+text first. It replaces the browser's `datalist`, whose matching and keys
+differ between browsers. Nothing is preselected, so Enter and the comma
+keep finishing what was typed; the arrow keys choose a suggestion. The
+known tags come from `GET /api/tags`, which only lists tags of scores the
+user may see.
