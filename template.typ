@@ -244,6 +244,7 @@ figcaption { color: var(--muted); font-size: 0.86rem; margin-top: 0.6rem; }
 #let app-license-url = "https://www.gnu.org/licenses/agpl-3.0.html"
 #let source-url = "https://github.com/Musicus-Sheets/Musicus"
 #let license-notice(kind) = [
+  © 2026 the Musicus contributors.
   This #kind is licensed under the
   #link(doc-license-url)[Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)].
   Musicus itself is free software, licensed under the
