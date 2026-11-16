@@ -19,12 +19,13 @@ through the REST API. It keeps no data on the device (R4).
   [`picker`], [The assignment picker used wherever entries are assigned (group members and grants, part instruments, programme pieces): assigned entries as removable chips and a dropdown with search and multi-selection.],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
   [`bridge` + `js/bridge.js`], [Everything browsers offer only in JavaScript: pdf.js rendering, the in-memory sheet cache, the wake lock, fullscreen, clipboard, and sending unsaved annotations when the tab closes.],
-  [`ink`], [Draws annotation layers on a canvas, converts between page and pixel coordinates, hit-tests the eraser.],
+  [`ink`], [Draws annotation layers on a canvas (whole page or a crop of it), converts between page and pixel coordinates, hit-tests the eraser.],
+  [`layouts`], [The system layouts of sheets, kept in memory for the system view (@system-view).],
   [`pages::login`, `account`], [Login, invite acceptance, password change, device list.],
   [`pages::library`, `programmes`, `instruments`], [Score list with search and thumbnails; concert programmes with prefetch; the instrument list. For librarians and admins the same pages carry the management controls.],
   [`pages::score_edit`, `programme_edit`, `forms`], [Editors opened from those pages: the guided flow for a new piece, the edit views of a piece and of a part (with PDF upload and versions), the programme editor, and the form pieces they share.],
   [`pages::groups`, `users`], [Groups with members and grants (librarians and admins); user accounts with invite links (admins).],
-  [`pages::viewer`], [The sheet reader with drawing tools and annotation sets.],
+  [`pages::viewer`], [The sheet reader with drawing tools and annotation sets; page view or system view (@system-view).],
 )
 
 #figure(
@@ -106,7 +107,8 @@ file with the WebAssembly module.
   [Function], [Purpose],
   [`prefetch(url)`], [Downloads a sheet into an in-memory map (url → bytes) unless it is there already. The download starts when the function is called, not when the Rust future is polled, so several prefetches run in parallel.],
   [`pageCount`, `renderPage`], [Open the cached bytes with pdf.js (in a Web Worker) and render one page as large as fits the given box, at device pixel ratio. Rendering goes to an off-screen canvas first, so the visible page never flashes blank; an older render of the same canvas is cancelled.],
-  [`retainOnly(urls)`], [Frees cached sheets not in the list (called when another programme is opened).],
+  [`renderCrop`, `prerenderCrop`], [System view: render only a crop of a page (pdf.js viewport offset), at a given CSS width and the device pixel ratio, into a small in-memory cache of bitmaps; `prerenderCrop` fills the cache for the next view. pdf.js gets `wasmUrl`, so scans compressed with JBIG2 or JPEG 2000 render.],
+  [`retainOnly(urls)`], [Frees cached sheets (and their rendered crops) not in the list (called when another programme is opened).],
   [`setPending`, `clearPending`], [Keep a copy of every unsaved annotation page. On `pagehide` (tab closed, reload) they are sent with `fetch(..., {keepalive: true})`, which browsers complete even while the page unloads.],
   [`keepAwake`, `toggleFullscreen`, `copyText`], [Screen wake lock (re-acquired after tab switches), fullscreen, clipboard.],
 )
@@ -131,7 +133,10 @@ file with the WebAssembly module.
 == Drawing: `ink`
 
 `PageBox` is the size of the displayed page in CSS pixels and converts
-between page coordinates (0--65535) and pixels. `draw_layer` clears the ink
+between page coordinates (0--65535) and pixels. In the system view a canvas
+shows only a crop of a page: the box also holds the crop's offset and size,
+and the canvas is translated by the offset, so layers keep their page
+coordinates. `draw_layer` clears the ink
 canvas and draws a whole layer: highlighter strokes first, then pen
 strokes, stamps and text, so pen marks stay on top. Pen width varies with
 the recorded pressure. `hit` returns the ids of all objects within the
@@ -162,7 +167,8 @@ The reader is the most involved page. It has three layers stacked in the
   [Annotation store], [A `Store` of `PageState` per (set, page): the layer, the server revision it is based on, the object ids of that revision (`base_ids`, for merging), and change counters (`generation`, `saved_generation`). It also keeps undo and redo stacks.],
   [Saving], [`save_page` sends a dirty page with `If-Match`; on conflict it fetches the server version, merges with `ink::merge` and retries (up to five times). Changes are saved 1.5 s after the last one, immediately on page turns, and when the reader closes.],
   [Input], [Pointer events on the ink canvas. While a stroke is drawn, segments go directly to the canvas; the stroke becomes an object on `pointerup`. Once a pen was seen, touch input is ignored (palm rejection). Keyboard and foot pedals arrive through a small `eval` script that forwards `keydown` events.],
-  [Navigation], [Tap zones (left and right third), arrow and page keys. Turning past the last page opens the next piece of the programme.],
+  [Navigation], [Tap zones (left and right third), swipes, arrow and page keys. Turning past the last page opens the next piece of the programme.],
+  [System view], [With the `☰ Systems` switch the reader plans views of whole systems from the file's layout and shows one crop (PDF canvas + ink canvas) per system; see @system-view.],
   [Sets], [Create, duplicate, rename, make default, link to the programme, delete, and move to a new file version.],
 )
 

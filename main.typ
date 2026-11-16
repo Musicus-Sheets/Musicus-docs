@@ -12,6 +12,7 @@
 #include "chapters/04-server.typ"
 #include "chapters/05-data-model.typ"
 #include "chapters/06-web-client.typ"
+#include "chapters/12-system-view.typ"
 #include "chapters/07-flows.typ"
 #include "chapters/08-deployment.typ"
 #include "chapters/09-quality.typ"

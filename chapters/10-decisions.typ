@@ -304,3 +304,27 @@ the introduction.
    is never the protection. New management functions belong next to the
    content they change.],
 )
+
+== Music systems detected on the server, once per file <d-system-layout>
+
+#decision(
+  [The system view (@system-view) needs to know where the music systems are
+   on every page. This could be computed in the browser when a part is
+   opened, by optical music recognition, or entered by hand.],
+  [The server finds staves, systems and cut lines with a projection-based
+   image analysis of each page rendered by hayro, once per file, in one
+   background worker, and stores the result with an algorithm version. The
+   client only plans the views for its screen. Pages the analysis is unsure
+   about are shown whole; librarians can correct a page.],
+  [Files are immutable and shared by all members, so one analysis serves
+   everyone and never becomes stale. The analysis needs 23--112 ms per page on
+   one laptop core and no external model; a tablet would repeat it for every
+   musician at the worst moment (opening a piece on stage). hayro already
+   renders thumbnails on the server, so no new dependency is needed. Optical
+   music recognition would be far heavier and still fail on manuscripts. In
+   the prototype, 82 of 84 music pages of 23 real scores were correct.],
+  [New uploads have no layout for a few seconds (the reader shows whole
+   pages meanwhile). A better algorithm must raise `ALGORITHM_VERSION`; the
+   worker then analyses every file again in the background. Systems wider
+   than the screen are shown at full width, not split (R-READ-017).],
+)
