@@ -233,9 +233,23 @@ figcaption { color: var(--muted); font-size: 0.86rem; margin-top: 0.6rem; }
   .decision-row { grid-template-columns: 1fr; gap: 0.2rem; }
 }
 @media print { aside { display: none; } .layout { display: block; } }
+.license { margin: 4rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
 ```
 
 // --- Document setup --------------------------------------------------------------------
+
+// --- License notice (PDF title page and end of the HTML page) -------------------
+
+#let doc-license-url = "https://creativecommons.org/licenses/by-sa/4.0/"
+#let app-license-url = "https://www.gnu.org/licenses/agpl-3.0.html"
+#let source-url = "https://github.com/Musicus-Sheets/Musicus"
+#let license-notice(kind) = [
+  This #kind is licensed under the
+  #link(doc-license-url)[Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)].
+  Musicus itself is free software, licensed under the
+  #link(app-license-url)[GNU Affero General Public License, version 3 (AGPL-3.0)].
+  Source code: #box(link(source-url, source-url.trim("https://", at: start))).
+]
 
 #let project(title: "", subtitle: "", version: "", body) = {
   set document(title: title + " – technical documentation")
@@ -294,6 +308,7 @@ figcaption { color: var(--muted); font-size: 0.86rem; margin-top: 0.6rem; }
           #html.elem("p", attrs: (class: "version"))[#version]
         ]
         #body
+        #html.elem("footer", attrs: (class: "license"))[#license-notice("documentation")]
       ]
     ]
   } else {
@@ -394,6 +409,7 @@ figcaption { color: var(--muted); font-size: 0.86rem; margin-top: 0.6rem; }
         #v(0.45cm)
         #text(size: 10pt, version)
       ]
+      #place(bottom + left, dx: 2.4cm, dy: -1.2cm, block(width: 100% - 2 * 2.4cm, text(size: 7.5pt, fill: muted, license-notice("documentation"))))
     ]
     // Contents (may span several pages)
     [
