@@ -26,7 +26,8 @@ these units:
   [`db`], [SQLite connection pools, migrations, online backup.],
   [`blobs`], [Content-addressed file store on disk.],
   [`cache`], [In-memory LRU cache of hot sheet files.],
-  [Formats], [`processors`], [Recognises uploaded files and extracts page count and thumbnail.],
+  table.cell(rowspan: 2)[Formats], [`processors`], [Recognises uploaded files and extracts page count and thumbnail.],
+  [`layout`], [Finds the music systems on every page of a file, in a background worker (@system-view).],
 )
 
 @fig-server shows how they depend on each other. Arrows point from the user
@@ -306,3 +307,17 @@ Called once per upload:
   more mature pdf.js. MusicXML will become a second processor without
   touching the blob store. See @d-pdf-rendering.
 ]
+
+== Format unit: `layout`
+
+After an upload the new file is announced to the layout worker (a
+`tokio::sync::Notify` in `App`). The worker, started by `serve`, analyses one
+file at a time on a blocking thread, newest first, and stores the music
+systems of every page in `file_layouts`; files without a current layout
+(also all files after an update of the algorithm) are picked up after the
+start. `GET /api/files/{sha256}/layout` serves the result to everyone who
+may read the file, with librarians' corrections (`layout_corrections`)
+applied; it is `pending` until then. Librarians correct a page with `PUT`
+and reset it with `DELETE` on `/api/files/{sha256}/layout/pages/{page}`. The algorithm is described in
+@system-view; `PUT /api/auth/reader-settings` stores a user's reader mode
+and staff size.
