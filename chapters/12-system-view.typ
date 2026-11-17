@@ -167,29 +167,59 @@ and assumes 132 CSS pixels per inch (`CSS_PX_PER_MM` = 5.197; iPad, most
 density. The staff size setting gives the minimum staff height $m$:
 S = 5 mm, M = 6 mm, L = 7 mm, XL = 8 mm (default M).
 
-For a candidate view of items $s..e$ (scales in CSS px per mm of paper):
+The detected systems only decide *where a view starts and where it ends*.
+What the reader shows is always the original page: on every page a view
+touches it shows *one contiguous crop* -- from the top of the first item on
+that page to the bottom of the last one, with everything in between (the
+space between the systems, text, bands that are hidden or small headers and
+footers lying between shown systems). Hidden and skipped bands only matter at
+the start and the end of a view. A stroke drawn across several systems
+therefore stays straight, and the view looks like the sheet.
 
-$ "fit"_w = W / (max_i x_(1,i) w_i - min_i x_(0,i) w_i) quad
-  "fit"_h = H / (sum_i h_i) $
-$ "needed" = (m dot "CSS_PX_PER_MM") / (min "staff height on paper") quad
-  "target" = min("needed", "fit"_w) $
+For the whole document (scales in CSS px per mm of paper):
+
+$ "fit"_w = W / (x_1 - x_0) quad
+  "needed" = (m dot "CSS_PX_PER_MM") / (min "staff height on paper") quad
+  s = min("needed", "fit"_w) $
+
+where $[x_0, x_1]$ (mm) is the union of the horizontal extents of all system
+and text items of the document. Every view uses this one horizontal range and
+this one scale $s$, so consecutive views neither change size nor move
+sideways. Music wider than the screen at the minimum height is shown at full
+width (`below_min`).
+
+The height of a candidate view of items $a..e$ is the sum over the pages it
+touches of the height of its crop on that page (from the first item's top to
+the last item's bottom, gaps included).
 
 #[
   #set enum(numbering: "1.")
-  + A view starts at item $s$. A `Page` item is always alone (fitted whole).
+  + A view starts at item $a$. A `Page` item is always alone, fitted whole.
   + The view grows while the next item is not a `Page` item and
-    $min("fit"_w, "fit"_h) >= "target"$ for the larger view. Music wider than
-    the screen at the minimum height is thus shown at full width
-    (`below_min`), never cut.
+    $"height" dot s <= H$.
   + A view does not end with a title (a `Text` item followed by music on the
     same page, or in the upper half of its page); the title moves on.
-  + The view is drawn at $min("fit"_w, "fit"_h)$: it fills the screen.
+  + A single item taller than the screen at $s$ is scaled down to fit.
   + *Next view* (user decision): if the view holds at least three systems
     (`OVERLAP_MIN_SYSTEMS`), the next view starts with its last system (one
     system overlap, so the eye finds its place); with one or two systems it
     starts after the last item. A view that would only repeat the
     overlapped system is skipped.
 ]
+
+A view that continues on the next page stacks two crops directly below each
+other (end of page $n$, start of page $n+1$), separated only by a 1-pixel
+hairline; a stroke cannot continue across that line, because it belongs to
+another page.
+
+#why[The first version stitched one crop per system, removed the space
+between them, gave each a shadow and enlarged every view to fill the screen.
+Musicians found that lines drawn over several systems jumped at every system
+boundary, the views changed size and position, and the patchwork no longer
+looked like their sheet. One contiguous crop per page and one scale per
+document fix all three (decision a-contiguous-view in the agent
+documentation); the price is that the space between systems is shown, so
+slightly fewer systems fit.]
 
 The reading position is the first item of the current view. When the views
 are planned again -- the tablet is turned, the window resized, the staff
@@ -217,14 +247,16 @@ staff size (S, M, L, XL) in the reader bar. Both are stored per user on the
 server (`PUT /api/auth/reader-settings`, part of `/api/auth/me`): the web
 client keeps nothing on the device (R4).
 
-For the current view the reader stacks one crop per item. Each crop is
+For the current view the reader shows one canvas per page segment (one,
+or two at a page boundary), without shadows or borders between systems and
+one shadow around the whole view. Each crop is
 rendered by pdf.js directly as a crop: the viewport is offset by the crop's
 corner and scaled to the crop's on-screen width, at the device pixel ratio,
 into an off-screen canvas that is cached (24 crops). After a view is shown,
 the crops of the next view are rendered into the cache, so a page turn shows
 a finished image.
 
-Annotations stay in page coordinates. Each crop has its own ink canvas; its
+Annotations stay in page coordinates. Each page segment has its own ink canvas; its
 `PageBox` holds the page size on screen and the crop's offset, and the canvas
 is translated by the offset, so strokes are drawn, erased and stored exactly
 as in the page view (R-ANN-005, R-ANN-012). Undo acts on the page last drawn on.
