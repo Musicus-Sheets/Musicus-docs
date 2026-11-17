@@ -281,7 +281,10 @@ a page marked to be shown whole.
 A correction is stored per file and page (`layout_corrections`) as the
 complete list of cut lines and band kinds, and applied whenever the layout is
 served: per band, the horizontal extent and the ink come from the detected
-bands it overlaps, the staff count and staff size from the detected systems
+bands it overlaps. A cut line the librarian moved or added counts as the
+edge of the ink, so the system view reaches exactly up to it, even across
+empty paper (e.g. a first system pulled up to the top of the page); at
+detected cut lines the band is still trimmed to its ink. The staff count and staff size from the detected systems
 it overlaps (so the minimum staff size still works). The detection never
 touches corrections, so they survive a new detection run; a new file
 version starts uncorrected. A correction applies to every member, because
