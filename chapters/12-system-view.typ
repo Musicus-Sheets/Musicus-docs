@@ -251,8 +251,10 @@ For the current view the reader shows one canvas per page segment (one,
 or two at a page boundary), without shadows or borders between systems and
 one shadow around the whole view. Each crop is
 rendered by pdf.js directly as a crop: the viewport is offset by the crop's
-corner and scaled to the crop's on-screen width, at the device pixel ratio,
-into an off-screen canvas that is cached (24 crops). After a view is shown,
+corner and scaled to the crop's width in whole device pixels (the CSS size
+is derived from the pixels, so the browser shows the bitmap 1:1, see
+chapter 6), into an off-screen canvas that is cached (keyed by pixel size, at
+most 24 crops). After a view is shown,
 the crops of the next view are rendered into the cache, so a page turn shows
 a finished image.
 

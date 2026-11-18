@@ -107,12 +107,26 @@ file with the WebAssembly module.
   columns: (auto, 1fr),
   [Function], [Purpose],
   [`prefetch(url)`], [Downloads a sheet into an in-memory map (url → bytes) unless it is there already. The download starts when the function is called, not when the Rust future is polled, so several prefetches run in parallel.],
-  [`pageCount`, `renderPage`], [Open the cached bytes with pdf.js (in a Web Worker) and render one page as large as fits the given box, at device pixel ratio. Rendering goes to an off-screen canvas first, so the visible page never flashes blank; an older render of the same canvas is cancelled.],
-  [`renderCrop`, `prerenderCrop`], [System view: render only a crop of a page (pdf.js viewport offset), at a given CSS width and the device pixel ratio, into a small in-memory cache of bitmaps; `prerenderCrop` fills the cache for the next view. pdf.js gets `wasmUrl`, so scans compressed with JBIG2 or JPEG 2000 render.],
+  [`pageCount`, `renderPage`], [Open the cached bytes with pdf.js (in a Web Worker) and render one page as large as fits the given box, in whole device pixels (see below). Rendering goes to an off-screen canvas first, so the visible page never flashes blank; an older render of the same canvas is cancelled.],
+  [`renderCrop`, `prerenderCrop`], [System view: render only a crop of a page (pdf.js viewport offset) into exactly the given number of device pixels, into a small in-memory cache of bitmaps keyed by file, crop and pixel size; `prerenderCrop` fills the cache for the next view. pdf.js gets `wasmUrl`, so scans compressed with JBIG2 or JPEG 2000 render.],
+  [`pixelRatio`, `pixelRatioChanged`], [Device pixels per CSS pixel to render at (`devicePixelRatio` times the pinch zoom), and a promise that resolves when it changes (browser zoom, another screen, pinch); the reader then renders again.],
   [`retainOnly(urls)`], [Frees cached sheets (and their rendered crops) not in the list (called when another programme is opened).],
   [`setPending`, `clearPending`], [Keep a copy of every unsaved annotation page. On `pagehide` (tab closed, reload) they are sent with `fetch(..., {keepalive: true})`, which browsers complete even while the page unloads.],
   [`keepAwake`, `toggleFullscreen`, `copyText`], [Screen wake lock (re-acquired after tab switches), fullscreen, clipboard.],
 )
+
+*Sharp rendering.* A canvas looks sharp only if the browser shows its bitmap
+1:1. Browsers put a canvas on whole device pixels and paint it
+`round(left + width) − round(left)` pixels wide; if that differs from the
+bitmap by even one pixel, the whole bitmap is resampled and every staff line
+gets soft. The reader therefore chooses each canvas size in whole device
+pixels (`musicus_api::pixels::device_size`: CSS size × ratio, rounded, capped
+at 16.7 million pixels) and sets the CSS size to pixels ÷ ratio; pdf.js renders
+straight into that many pixels, and the ink canvas above uses the same size.
+Measured in Chromium on a real 2× and 2.625× screen, the painted size now
+equals the bitmap in page and system view; before, it was off by one pixel
+depending on the page size and zoom, which is why the PDF was only
+"sometimes" blurry.
 
 #why[
   PDF pages are rendered by pdf.js through this bridge, not by a Rust
