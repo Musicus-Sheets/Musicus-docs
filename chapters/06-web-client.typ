@@ -15,7 +15,7 @@ through the REST API. It keeps no data on the device (R4).
   [`main`], [Start-up, the route table (`Route`), the `Session` context (who is logged in), the global stylesheet.],
   [`ui`], [The page frame `Shell` (navigation, login guard), the role helpers `can_manage`/`is_admin`, and small shared helpers (error box, date formatting, `confirm`/`prompt` dialogs).],
   [`suggest`], [Suggestions while typing (tags, instrument families): a small list of matching known values.],
-  [`tag_input`], [Tag entry: finished tags as chips like in the library, one text field between them as the caret.],
+  [`tag_input`], [Tag entry: finished tags as chips like in the library, one text field between them as the caret. Also used for the voices of a part.],
   [`picker`], [The assignment picker used wherever entries are assigned (group members and grants, part instruments, programme pieces): assigned entries as removable chips and a dropdown with search and multi-selection.],
   [`api`], [HTTP client for the REST API: JSON helpers, binary upload, annotation page load and save, error mapping.],
   [`bridge` + `js/bridge.js`], [Everything browsers offer only in JavaScript: pdf.js rendering, the in-memory sheet cache, the wake lock, fullscreen, clipboard, and sending unsaved annotations when the tab closes.],
@@ -206,8 +206,8 @@ The reader is the most involved page. It has three layers stacked in the
 
 `forms` holds the pieces every editor shares: the score fields (tags
 through `tag_input`), the
-instrument picker, the part fields (key from a selection list, free-text
-voice, optional custom name whose placeholder is the derived name, and the
+instrument picker, the part fields (key from a selection list, voices as
+chips, optional custom name whose placeholder is the derived name, and the
 resulting name shown live), the editor of an existing part (fields, upload or
 replacement of the PDF, list of file versions, deletion) and the form that
 adds a new part. A PDF upload reads the file in the browser and sends it as
@@ -252,7 +252,7 @@ instrument grants, score grants) as soon as it changes, with the existing
 endpoints that replace a list as a whole, and restores the previous list if
 the server refuses; it has no Save button. The part editor saves instrument
 changes immediately as well; because `PUT /api/parts/{id}` replaces all
-fields of a part, it sends the last saved label, voice and key with them,
+fields of a part, it sends the last saved label, voices and key with them,
 and those fields keep their own Save button. The form for a new part and the
 programme editor keep the selection in the form until it is submitted; the
 programme picker keeps pieces that are already in the programme selectable,
@@ -271,6 +271,10 @@ with non-editable chips inside was rejected: browsers and mobile keyboards
 differ too much in how the caret moves around such islands. The chips before
 and after the text field are rendered as two lists around it, so adding or
 moving chips never moves the focused field.
+
+The voices of a part use the same component: each voice is a chip, and
+besides the comma also "&" finishes a voice, because " & " joins the voices
+in the part's name ("1 & 2" typed gives two voices).
 
 While a tag or an instrument family is typed, `suggest` shows the known
 values that match, ignoring case and diacritics, those starting with the
