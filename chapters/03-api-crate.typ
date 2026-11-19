@@ -7,14 +7,15 @@ on. The crate has no I/O and no dependencies besides `serde` and
 `postcard`, so it compiles for the server, for WebAssembly, and later for a
 native app.
 
-It has two sub units that do not depend on each other:
+It has these units:
 
 #table(
   columns: (auto, 1fr),
   [Unit], [Purpose],
   [`dto`], [Plain data types of the REST API (Data Transfer Objects) plus a few constants.],
   [`ink`], [The annotation model, its binary encoding, validation, and the three-way merge.],
-  [`naming`], [Names of parts derived from instruments, key and voices; the fixed list of keys.],
+  [`naming`], [Names of parts derived from instruments, key and voices; the fixed list of keys; archive numbers.],
+  [`import`], [Mass import: file name patterns, part names in file names, grouping into pieces and the review colours.],
 )
 
 #why[
@@ -77,6 +78,43 @@ accidentals: B♭ (`Bb`), E♭, F, C, A, D, G, E, A♭, D♭, G♭ and B♮ (`H`
 B natural uses the German letter because a stored "B" is ambiguous (B♭ in
 German). The server also accepts common spellings ("B-flat", "in Es") and
 rejects anything else.
+
+== Unit `import` <api-import>
+
+The mass import reads pieces and parts from the folder and
+file names of an archive. Everything that *interprets* names lives here, so
+the browser's live preview and the server's stored proposal are computed by
+the same code:
+
+- `pattern`: a small pattern language. `{number}`, `{title}`,
+  `{composer}`, `{arranger}`, `{genre}`, `{part}` and `{*}` (ignored text)
+  are placeholders, `[…]` marks an optional part, everything else is
+  literal. `[{genre}/][{number} ]{title}[ - {composer}]/{part}.pdf` reads
+  `Marches/0304 Alte Kameraden - Teike/Klarinette 1 in B.pdf`. Four presets
+  cover the common layouts; `detect` picks the one that matches most files.
+- `parts`: reads instruments, key and voices from a part name in German or
+  English, with abbreviations and without spaces (`Klar2B`,
+  `KlarinetteEb`, `Bb Clarinet II`). A key is never assumed. German key
+  letters (B = B♭, Es, As, H) are read only in batches marked German,
+  because "B" means B♮ in English. Several voices joined by `+`, `&`, `/`,
+  `,`, "und" or "and" (`Trompete 1+2`, `I+II`) become a list of voices;
+  numbers that only stand next to each other (`Trompete 1 2`) are read the
+  same way but marked for checking, as one of them may be a copy number. A
+  dictionary knows about 45 instruments; "Partitur" (full score) and
+  "Direktion" (conductor's part) are two different instruments.
+- `review`: groups files into pieces (by archive number, otherwise by title
+  and composer) and turns a stored proposal plus the librarian's changes into
+  the review rows: every value with its source (file name, dictionary,
+  stored alias, library, librarian) and a colour, green (sure), yellow
+  (check) or red (blocks the commit).
+
+#why[
+  Values are resolved against the library on every read instead of being
+  stored resolved: when a librarian maps "Klar" to "Clarinet" once, every row
+  of every open import turns green without rewriting anything. Each value
+  keeps its source, so text recognition on the first page or an inventory
+  list can later add candidates without changing the workflow.
+]
 
 == Unit `ink`
 
