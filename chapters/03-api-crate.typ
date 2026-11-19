@@ -39,6 +39,7 @@ description of the API.
   [Users], [`Role`, `UserSummary`, `CreateUser`, `UpdateUser`, `Invite`, `CreatedUser`],
   [Access], [`Instrument`, `InstrumentInput`, `Group`, `GroupInput`, `IdList`],
   [Library], [`Score`, `ScoreInput`, `Part`, `PartInput`, `FileVersion`],
+  [Mass import], [`NewImportBatch`, `UpdateImportBatch`, `ImportBatch`, `ImportFileCounts`, `RegisterImportFiles`, `ImportFileInput`, `RegisteredImportFiles`, `ImportUpload`, `ImportReview`, `UpdateImportItems`, `CommitImport`, `CommittedImport`, `ImportItemError`, `UndoneImport`, `InstrumentAlias`, `InstrumentAliasInput`; review rows from unit `import`],
   [Programmes], [`Programme`, `ProgrammeInput`, `ProgrammeSummary`, `ProgrammeItem`],
   [Annotations], [`AnnotationSet`, `NewAnnotationSet`, `UpdateAnnotationSet`, `PageRevision`, `SavedPage`, `PageConflict`],
 )
@@ -81,7 +82,7 @@ rejects anything else.
 
 == Unit `import` <api-import>
 
-The mass import reads pieces and parts from the folder and
+The mass import (@flow-import) reads pieces and parts from the folder and
 file names of an archive. Everything that *interprets* names lives here, so
 the browser's live preview and the server's stored proposal are computed by
 the same code:

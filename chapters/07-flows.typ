@@ -92,6 +92,36 @@ file in 0.2 s. The real limit is the Wi-Fi, which the next flow avoids.
 + Existing annotation sets keep pointing to the old file; their owners see
   a hint and can move the sets to the new version (@flow-save).
 
+== Importing an archive <flow-import>
+
++ A librarian opens #emph[Import] and selects (or drops) the archive folder.
+  The browser lists the PDF files with their paths, suggests the pattern
+  that fits most of them and the naming language, and previews the result
+  (`musicus_api::import`, the same code the server runs).
++ `POST /api/import/batches` creates the batch. The browser computes the
+  SHA-256 of every file (in WebAssembly, in chunks) and sends the list
+  (`POST …/files`). The server marks content that is already in the library
+  or twice in the folder as duplicate, computes the proposals from the paths
+  and answers with the files it still needs.
++ The browser uploads those files one by one (`PUT /api/import/files/{id}/content`),
+  like a normal upload: streamed to `tmp/`, hash checked against the
+  announced one, PDF checked, thumbnail and page count, `files` row; the
+  layout worker analyses the systems in the background. An interrupted
+  import continues by selecting the folder again: only missing files are
+  uploaded.
++ The review (`GET /api/import/batches/{id}`) resolves every proposal
+  against the current instruments, aliases, pieces and groups: colours,
+  suggested existing pieces, the groups that will read each part, warnings
+  from the detected systems. Changes are stored as overrides
+  (`PATCH /api/import/items`); mapping a word to an instrument stores an
+  alias that every row uses at once.
++ `POST …/commit` creates each chosen (or every green) piece with its parts
+  and file versions in one short write transaction, with the same validation
+  as the piece form. From then on the normal read rule applies.
++ `POST …/undo` removes the parts and the pieces the batch created, unless
+  musicians annotated them, other parts were added, or a piece is in a
+  programme (409, nothing removed). Files stay in the store.
+
 == Drawing and saving an annotation <flow-save>
 
 #figure(
