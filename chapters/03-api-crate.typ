@@ -14,7 +14,7 @@ It has two sub units that do not depend on each other:
   [Unit], [Purpose],
   [`dto`], [Plain data types of the REST API (Data Transfer Objects) plus a few constants.],
   [`ink`], [The annotation model, its binary encoding, validation, and the three-way merge.],
-  [`naming`], [Names of parts derived from instruments, key and voice; the fixed list of keys.],
+  [`naming`], [Names of parts derived from instruments, key and voices; the fixed list of keys.],
 )
 
 #why[
@@ -59,9 +59,15 @@ Notable details:
 == Unit `naming`
 
 A part is named after what it is: its instruments (alphabetical, joined
-with " / "), " in " and its key, then its voice, e.g. "Trumpet in B♭ 1",
-"Horn in F 3a" or "Flute / Piccolo". A part without instrument, key and
-voice is an "Unnamed part". An optional custom name replaces the derived
+with " / "), " in " and its key, then its voices joined with " & " in
+their order, e.g. "Trumpet in B♭ 1", "Horn in F 3a", "Flute / Piccolo",
+"Klarinette 1 & 2" or "Trombone 1 & 2 & 3". A part without instrument, key
+and voice is an "Unnamed part". Voices are cleaned the same way everywhere
+(`clean_voices`): trimmed, blank and repeated entries (ignoring case)
+dropped, the order kept; an "&" inside an entry separates two voices, so a
+name never hides how many voices a part has. Names sort with numbers by
+value, so a part with several voices sorts by its first voice, then the
+next ("Clarinet 1", "Clarinet 1 & 2", "Clarinet 2"). An optional custom name replaces the derived
 name. The server computes the name (`Part.display_name`) on every read, so
 renaming an instrument renames its parts; the web client uses the same
 function only to preview the name while a part is edited.
