@@ -91,8 +91,18 @@ the same code:
   `{composer}`, `{arranger}`, `{genre}`, `{part}` and `{*}` (ignored text)
   are placeholders, `[…]` marks an optional part, everything else is
   literal. `[{genre}/][{number} ]{title}[ - {composer}]/{part}.pdf` reads
-  `Marches/0304 Alte Kameraden - Teike/Klarinette 1 in B.pdf`. Four presets
-  cover the common layouts; `detect` picks the one that matches most files.
+  `Marches/0304 Alte Kameraden - Teike/Klarinette 1 in B.pdf`. Separators
+  are tolerant: a space in the pattern also matches `_`, and values lose
+  `-` and spaces at both ends, so `{number} {part}.pdf` reads `0304 Horn`,
+  `0304_Horn` and `0304 - Horn` alike. Three general presets cover the
+  common layouts, not the habits of one ensemble: a folder per piece
+  (optionally inside category folders, the default), one folder with
+  archive number and part in the file name (`{number} {part}.pdf`), and one
+  folder with an optional number, the title and the part
+  (`[{number} ]{title} - {part}.pdf`). `detect` picks the preset that
+  matches most files; ties go to the one whose part names have a known
+  instrument, then to the one that leaves no unknown words in the part
+  names, then to the preset order. Any other naming is an own pattern.
 - `parts`: reads instruments, key and voices from a part name in German or
   English, with abbreviations and without spaces (`Klar2B`,
   `KlarinetteEb`, `Bb Clarinet II`). A key is never assumed. German key
@@ -102,7 +112,8 @@ the same code:
   numbers that only stand next to each other (`Trompete 1 2`) are read the
   same way but marked for checking, as one of them may be a copy number. A
   dictionary knows about 45 instruments; "Partitur" (full score) and
-  "Direktion" (conductor's part) are two different instruments.
+  "Direktion" (conductor's part) are two different instruments. An
+  instrument named twice (`Klarinette Klar 1`, `Trp/Trompete`) is read once.
 - `review`: groups files into pieces (by archive number, otherwise by title
   and composer) and turns a stored proposal plus the librarian's changes into
   the review rows: every value with its source (file name, dictionary,
@@ -112,6 +123,9 @@ the same code:
   (green) or an instrument word of the file name that is kept: adding a
   second instrument to a part whose word is still unknown keeps that word
   red and waiting for confirmation instead of dropping it.
+  Each instrument is listed once per part: two words that resolve to the
+  same library instrument (for example through a stored alias) count once
+  in the review, the part name, the readers and the committed part.
 
 #why[
   Values are resolved against the library on every read instead of being
