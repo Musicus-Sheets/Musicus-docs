@@ -353,3 +353,30 @@ the introduction.
    worker then analyses every file again in the background. Systems wider
    than the screen are shown at full width, not split (R-READ-017).],
 )
+
+== Fluent messages with typed keys, formatting by the browser <d-i18n-fluent>
+
+#decision(
+  [Musicus is to speak the language of its users (F-I18N-001). The web
+   client is Rust compiled to WebAssembly; every kilobyte of the client is
+   downloaded by every tablet. Translations should be possible for
+   musicians without programming, later through a translation platform.],
+  [User-interface texts are Project Fluent messages in a crate
+   `musicus-i18n`, English as source. A build script turns the English
+   catalogue into one Rust function per message, so a missing message or a
+   wrong argument does not compile. All shipped languages are compiled into
+   the client; a message missing in a language falls back to English.
+   Dates, numbers and sorting use the browser's `Intl` API. The language is
+   the browser's; there is no setting.],
+  [Measured in WebAssembly: Fluent with plural rules adds about 60 KB
+   (gzip), date formatting from ICU4X about 217 KB and collation about
+   418 KB, while the browser offers both for free. Fluent has plural rules
+   and selectors, so translators control word order ("Clarinette en si♭"),
+   and the usual translation platforms read it. gettext has no selectors and
+   no compile-time check; other Rust libraries have weak plural support.],
+  [Translators work in `.ftl` files (or a platform that writes them). The
+   server sends no prose: part names are composed in the browser from
+   their components, and errors become codes (@i18n). The search index
+   stores the key spellings of every shipped language, so a new language
+   needs one index rebuild.],
+)
