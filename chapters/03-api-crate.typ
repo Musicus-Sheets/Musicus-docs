@@ -83,9 +83,12 @@ dropped, the order kept; an "&" inside an entry separates two voices, so a
 name never hides how many voices a part has. Names sort with numbers by
 value, so a part with several voices sorts by its first voice, then the
 next ("Clarinet 1", "Clarinet 1 & 2", "Clarinet 2"). An optional custom name replaces the derived
-name. The server computes the name (`Part.display_name`) on every read, so
-renaming an instrument renames its parts; the web client uses the same
-function only to preview the name while a part is edited.
+name. The words around the data ("in", "Part", key names such as "B♭")
+belong to the user-interface language: `part_name` takes them as a
+`NameWords` value from the message catalogue (@i18n). The server sends only
+the components (custom name, instruments with their names, key, voices) and
+the web client composes the name, so renaming an instrument renames its
+parts and every reader sees the words of their own language.
 
 Keys come from a fixed list, stored as ASCII codes and shown with
 accidentals: B♭ (`Bb`), E♭, F, C, A, D, G, E, A♭, D♭, G♭ and B♮ (`H`).
