@@ -284,11 +284,14 @@ statements (writes in a transaction on the writer pool); return a
 `AppError` enumerates every failure a handler can report (not found,
 unauthorized, forbidden, bad request, conflict, unprocessable, payload too
 large, unsupported media type, precondition required, too many requests,
-internal). Its `IntoResponse` implementation chooses the status code and
-renders `ApiError` JSON. `From<sqlx::Error>` maps unique-constraint
-violations to 409 ("already exists") and foreign-key violations to 409
-("still in use"), so handlers can rely on the database for these checks.
-Internal errors are logged with details but answered with a generic message.
+internal). Each variant carries an error code (unit `error` of the API crate),
+never a text, so the server cannot send prose to users. Its `IntoResponse`
+implementation chooses the status code and renders `ApiError` JSON with the
+code, its arguments and the code's English message. `From<sqlx::Error>` maps
+unique-constraint violations to 409 `already_exists` and foreign-key
+violations to 409 `in_use_or_unknown`, so handlers can rely on the database
+for these checks. Internal errors are logged with details but answered with
+the code `internal` only.
 
 == Format unit: `processors`
 

@@ -25,6 +25,19 @@ It has these units:
   release cycle of the UI framework. See @d-shared-types.
 ]
 
+== Unit `error`
+
+The server sends no sentences for users: every error is an `ErrorCode`, a
+stable snake_case name with typed arguments, for example
+`{"error": "bad_request", "code": "password_too_short", "args": {"min": 8},
+"message": "the password needs at least 8 characters"}`. The `message` is the
+code's English text for people using the API directly and for logs; the web
+client never shows it but renders its own text for every code, so the texts
+can later be translated (requirement R-I18N-004). Import notes, pattern errors
+and annotation-format errors are data in the same way. Codes are never renamed
+or reused; a code from a newer server that this client does not know is read
+as `unknown`, and then the `message` is shown.
+
 == Unit `dto`
 
 Groups the request and response bodies by area. Every endpoint of the
@@ -34,7 +47,7 @@ description of the API.
 #table(
   columns: (auto, 1fr),
   [Area], [Types],
-  [Errors], [`ApiError` (`error` code + human `message`), returned with every non-2xx status.],
+  [Errors], [`ApiError` (`error` class of the status, `code` + `args` from unit `error`, English `message` for API users only), returned with every non-2xx status.],
   [Authentication], [`LoginRequest`, `LoginResponse`, `CurrentUser`, `InviteInfo`, `AcceptInvite`, `ChangePassword`, `SessionInfo`],
   [Users], [`Role`, `UserSummary`, `CreateUser`, `UpdateUser`, `Invite`, `CreatedUser`],
   [Access], [`Instrument`, `InstrumentInput`, `Group`, `GroupInput`, `IdList`],
