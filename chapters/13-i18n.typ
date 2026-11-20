@@ -36,8 +36,8 @@ chapter describes the target and marks what exists.
 #table(
   columns: (auto, 1fr),
   [Phase], [Content],
-  [0], [Decisions, requirements, glossary (`docs/agents/glossary.md`).],
-  [1], [Catalogue crate, language choice, `Intl` formatting, checks.],
+  [0], [Decisions, requirements, glossary (`docs/agents/glossary.md`). Done.],
+  [1], [Catalogue crate, language choice, `Intl` formatting, checks. Done: the client grew by about 53 KB (gzip).],
   [2], [Errors as codes (separate branch).],
   [3], [Part names and the default set name composed in the browser; search on components.],
   [4], [All client texts in the catalogue; a lint forbids literal texts.],
