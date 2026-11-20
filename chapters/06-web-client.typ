@@ -91,7 +91,7 @@ All requests go through a few helpers (`get`, `post`, `put`, `patch`,
   cookie by itself);
 - turns a non-2xx answer into `ApiErr` with the error code and the client's
   own text for it (unit `errors`, the one place where codes, import notes and
-  pattern errors become sentences; English for now);
+  pattern errors become sentences, each a message of the catalogue, @i18n);
 - on 401 reloads the browser at `/login`. The full reload is deliberate: it
   discards all in-memory state of the previous session.
 
