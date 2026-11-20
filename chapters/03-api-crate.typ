@@ -107,7 +107,11 @@ the same code:
   and composer) and turns a stored proposal plus the librarian's changes into
   the review rows: every value with its source (file name, dictionary,
   stored alias, library, librarian) and a colour, green (sure), yellow
-  (check) or red (blocks the commit).
+  (check) or red (blocks the commit). The librarian's instruments of a part
+  are a list in which each entry is either an instrument of the library
+  (green) or an instrument word of the file name that is kept: adding a
+  second instrument to a part whose word is still unknown keeps that word
+  red and waiting for confirmation instead of dropping it.
 
 #why[
   Values are resolved against the library on every read instead of being

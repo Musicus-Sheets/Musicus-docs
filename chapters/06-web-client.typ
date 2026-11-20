@@ -243,6 +243,13 @@ answers which files it still needs; uploads send the `File` itself, so the
 browser streams it from disk. Selecting the same folder again continues an
 interrupted import.
 
+The review edits a part with the controls of the part editor: instruments
+as chips with the assignment picker (any number per part), voices as chips
+in the same tag input. Every change is stored at once as an override. The
+pattern preview gives number, title, composer and genre fixed shares of the
+width and lets the parts wrap onto several lines; on screens narrower than
+1024 px each part of the review becomes a small card instead of a table row.
+
 === Assignment picker
 
 Lists with one checkbox per existing user, instrument or piece do not scale.
