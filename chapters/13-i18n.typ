@@ -40,7 +40,7 @@ chapter describes the target and marks what exists.
   [1], [Catalogue crate, language choice, `Intl` formatting, checks. Done: the client grew by about 53 KB (gzip).],
   [2], [Errors as codes (separate branch).],
   [3], [Part names and the default set name composed in the browser; search on components. Done (migration 0009).],
-  [4], [All client texts in the catalogue; a lint forbids literal texts.],
+  [4], [All client texts in the catalogue (about 450 English messages); a lint forbids literal texts; a pseudo-locale test run marks every translated text. Done.],
   [5], [All displayed lists sorted in the browser with the UI language's collation.],
   [later], [German catalogue, translated user guide, translation platform.],
 )
