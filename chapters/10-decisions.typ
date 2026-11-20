@@ -305,6 +305,31 @@ the introduction.
    content they change.],
 )
 
+== Imports go through a staging area and a review <d-import-staging>
+
+#decision(
+  [An archive could be imported directly: read the names, create pieces
+   and parts, done.],
+  [An import uploads into a staging area (`import_files`, `import_items`).
+   Nothing is created until a librarian commits a reviewed piece. The values
+   read from the names are stored with their source; the review is computed
+   on every read against the current library, with green, yellow and red
+   marks; red blocks the commit. Instruments are never created
+   automatically; a word that means an instrument is stored as alias once.
+   Each piece is committed in its own short transaction, and a batch can be
+   undone as long as nobody annotated its parts.],
+  [The instrument of a part decides who may read it. A wrong guess ("Klar"
+   becoming a new instrument, a full score taken as conductor's part)
+   would show sheets to the wrong musicians or hide them. A staging area
+   lets the librarian check thousands of files without anything reaching
+   members, and short transactions keep annotation saves flowing during a
+   large import (@d-sqlite).],
+  [Staged files are blobs without a part, so they are invisible through
+   the library by construction; the review has its own librarian-only
+   routes. Undo cannot delete blobs (@d-blobs), so files of an undone import
+   stay in the store.],
+)
+
 == Music systems detected on the server, once per file <d-system-layout>
 
 #decision(

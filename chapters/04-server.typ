@@ -269,6 +269,7 @@ Unknown `/api` paths answer a JSON 404, not `index.html`.
   [`part_index`], [Keeps the search index of part names current: re-indexes parts when they or their instruments change, rebuilds it on start if it does not match the parts table.],
   [`routes::files`], [Serves files and thumbnails by hash after the access check, with `ETag`, `Range`, the RAM cache and the configured `Cache-Control`.],
   [`routes::programmes`], [Concert programmes and their ordered pieces; members only see pieces they have parts for.],
+  [`routes::import`], [Mass import (librarians only, @flow-import): batches, the file list with the browser's hashes (duplicates skipped), uploads into a staging area, proposals computed from the paths, the review (resolved on every read), the librarian's changes, commit per piece, undo of a batch, instrument aliases, and the batch's own routes for staged files and thumbnails.],
   [`routes::annotations`], [Annotation sets (create, duplicate, rename, default, link to a programme, delete, migrate to a new file version) and page layers with revision checks.],
 )
 

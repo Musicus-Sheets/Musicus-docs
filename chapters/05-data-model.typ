@@ -69,7 +69,7 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   [`group_instrument_grants`], [Group may read every part tagged with the instrument.],
   [`group_score_grants`], [Group may read every part of the score (conductor, section leaders).],
   table.cell(colspan: 2, fill: luma(240))[*Library*],
-  [`scores`], [The work or arrangement: title, subtitle, composer, arranger, genre, tags (JSON array), notes.],
+  [`scores`], [The work or arrangement: title, subtitle, composer, arranger, genre, tags (JSON array), notes, archive number (free text such as "0304", not unique) and its search forms (`archive_search`).],
   [`score_fts`], [FTS5 full-text index over the score metadata, kept in sync by triggers.],
   [`parts`], [One sheet of a score: optional custom name (`label`), key (code from a fixed list, e.g. `Bb`), notes. Without a custom name the part is named after its instruments, key and voices ("Trumpet in B♭ 2", "Klarinette 1 & 2").],
   [`part_voices`], [The voices a part contains, in order (part, position, voice; free text such as "2" or "1a"). A table of its own, indexed by voice, so that a later grant per voice can be checked with a join like the instruments.],
@@ -79,6 +79,11 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   [`part_files`], [File versions of a part (1, 2, ...). The highest version is current.],
   [`file_layouts`], [Music systems of every page of a file (JSON), the algorithm version and state (done / failed); written by the layout worker (@system-view). No row: not analysed yet.],
   [`layout_corrections`], [A librarian's correction of one page of a file: cut lines, band kinds and the whole-page flag (JSON), who and when. Applied when the layout is served; never changed by the detection.],
+  table.cell(colspan: 2, fill: luma(240))[*Mass import*],
+  [`import_batches`], [One selected folder: name, pattern, naming language (German / English), who and when.],
+  [`import_files`], [Every PDF of the folder: path below the folder (unique per batch), size, SHA-256 from the browser, state (pending, uploaded, duplicate, failed), the stored `files` row once uploaded.],
+  [`import_items`], [Proposed pieces and their parts (one per file): the values read from the names with their source (JSON), the librarian's changes (JSON), state (pending / committed) and, after the commit, the piece and part created.],
+  [`instrument_aliases`], [A word of file names (e.g. "klar") that means an instrument, chosen once by a librarian, used by every import.],
   table.cell(colspan: 2, fill: luma(240))[*Programmes*],
   [`programmes`, `programme_items`], [A concert (title, date, notes) and its pieces in order. A piece may appear twice (encore).],
   table.cell(colspan: 2, fill: luma(240))[*Annotations (private)*],
@@ -118,6 +123,17 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   several voices ("Klarinette 1 & 2"). An existing voice became the only
   entry of the list, unchanged; the part search index is rebuilt on the next
   start.
+- *Staged import files* (migration 0007) are ordinary blobs with a `files`
+  row but without a `part_files` row. Every library read of a file goes
+  through a part, so they stay invisible to everybody until a piece is
+  committed; the review reaches them only through its own batch.
+- *Archive number* (migration 0006) is free text and deliberately not
+  unique: paper archives contain gaps, double numbers and typos, and the
+  number only links a piece to its folder. The search index holds the
+  number as written plus the forms a librarian types ("0304" is also indexed
+  as "304", "A-12" as "A12"); the server computes them
+  (`naming::archive_search_text`). Adding the column required recreating
+  `score_fts` (FTS5 tables cannot be altered) and rebuilding it.
 
 #why[
   Annotation layers are stored in the database, not in the blob store: they

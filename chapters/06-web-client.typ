@@ -26,6 +26,7 @@ through the REST API. It keeps no data on the device (R4).
   [`pages::score_edit`, `programme_edit`, `forms`], [Editors opened from those pages: the guided flow for a new piece, the edit views of a piece and of a part (with PDF upload and versions), the programme editor, and the form pieces they share.],
   [`pages::layout_edit`], [Librarians correct the detected systems of a part's file, page by page (@system-view).],
   [`pages::groups`, `users`], [Groups with members and grants (librarians and admins); user accounts with invite links (admins).],
+  [`pages::import`, `import_review`], [Mass import (librarians, @flow-import): folder selection or drop, pattern with live preview, hashing and upload; the review with colours, instrument confirmation, bulk edit, import and undo.],
   [`pages::viewer`], [The sheet reader with drawing tools and annotation sets; page view or system view (@system-view).],
 )
 
@@ -228,6 +229,26 @@ librarians add, rename and delete them (a refused deletion of an
 instrument still in use is shown as a message). `groups` edits members and
 grants, `users` creates accounts with invite links (copied to the
 clipboard and sent by the admin, since the server sends no e-mail).
+
+=== Mass import
+
+The import has its own tab (like groups and users): it concerns pieces
+that do not exist yet. The selected folder's `File` objects stay in the
+JavaScript bridge (memory only); Rust receives paths and sizes. The preview
+calls the same functions the server uses (`musicus_api::import`), so what
+the librarian sees before uploading is what the server proposes. Before any
+upload the browser computes the SHA-256 of every file in WebAssembly, in
+slices of 4 MiB (SubtleCrypto cannot hash incrementally), and the server
+answers which files it still needs; uploads send the `File` itself, so the
+browser streams it from disk. Selecting the same folder again continues an
+interrupted import.
+
+The review edits a part with the controls of the part editor: instruments
+as chips with the assignment picker (any number per part), voices as chips
+in the same tag input. Every change is stored at once as an override. The
+pattern preview gives number, title, composer and genre fixed shares of the
+width and lets the parts wrap onto several lines; on screens narrower than
+1024 px each part of the review becomes a small card instead of a table row.
 
 === Assignment picker
 
