@@ -81,7 +81,7 @@ are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
   [`layout_corrections`], [A librarian's correction of one page of a file: cut lines, band kinds and the whole-page flag (JSON), who and when. Applied when the layout is served; never changed by the detection.],
   table.cell(colspan: 2, fill: luma(240))[*Mass import*],
   [`import_batches`], [One selected folder: name, pattern, naming language (German / English), who and when.],
-  [`import_files`], [Every PDF of the folder: path below the folder (unique per batch), size, SHA-256 from the browser, state (pending, uploaded, duplicate, failed), the stored `files` row once uploaded.],
+  [`import_files`], [Every PDF of the folder: path below the folder (unique per batch), size, SHA-256 from the browser, state (pending, uploaded, duplicate, failed), the stored `files` row once uploaded, and the reason a file was skipped or rejected as an error code (`problem`).],
   [`import_items`], [Proposed pieces and their parts (one per file): the values read from the names with their source (JSON), the librarian's changes (JSON), state (pending / committed) and, after the commit, the piece and part created.],
   [`instrument_aliases`], [A word of file names (e.g. "klar") that means an instrument, chosen once by a librarian, used by every import.],
   table.cell(colspan: 2, fill: luma(240))[*Programmes*],

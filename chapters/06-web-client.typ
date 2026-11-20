@@ -89,7 +89,9 @@ All requests go through a few helpers (`get`, `post`, `put`, `patch`,
 
 - sends the CSRF header `x-musicus-csrf` (the browser adds the session
   cookie by itself);
-- turns a non-2xx answer into `ApiErr` with the server's message;
+- turns a non-2xx answer into `ApiErr` with the error code and the client's
+  own text for it (unit `errors`, the one place where codes, import notes and
+  pattern errors become sentences; English for now);
 - on 401 reloads the browser at `/login`. The full reload is deliberate: it
   discards all in-memory state of the previous session.
 
