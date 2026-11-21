@@ -17,5 +17,6 @@
 #include "chapters/08-deployment.typ"
 #include "chapters/09-quality.typ"
 #include "chapters/13-i18n.typ"
+#include "chapters/14-updates.typ"
 #include "chapters/10-decisions.typ"
 #include "chapters/11-glossary.typ"

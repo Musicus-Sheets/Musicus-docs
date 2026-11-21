@@ -43,6 +43,7 @@ code uses DejaVu Sans Mono, which Typst embeds itself.
 | `chapters/09-quality.typ` | Tests |
 | `chapters/10-decisions.typ` | Architecture decision records |
 | `chapters/11-glossary.typ` | Glossary |
+| `chapters/14-updates.typ` | Updates, downgrades and platforms (plan, not implemented) |
 
 When the code changes, update the affected chapter; when a design decision is
 taken that a reader would not expect, add an entry to `10-decisions.typ` and

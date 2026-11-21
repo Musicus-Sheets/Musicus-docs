@@ -380,3 +380,51 @@ the introduction.
    stores the key spellings of every shipped language, so a new language
    needs one index rebuild.],
 )
+
+== Updates in two parts, with a downgrade window (planned) <d-update-model>
+
+#decision(
+  [Volunteers update Musicus by replacing the image or the program
+   (F-OPS-005). A failed or unwanted update must be undone by starting the
+   older release again, without database knowledge. A database migration
+   that drops or rewrites data makes that impossible; a downgrade by
+   restoring a backup loses everything done since the update.],
+  [Every database change has an additive part, which runs at the upgrade,
+   and a removal part, which a newer release runs later, only when no
+   release inside the downgrade window needs the old structures any more:
+   the three previous minors, the release the installation came from for
+   three months, and all patches of the same minor. The database records
+   the release that ran last, the oldest release allowed to start and the
+   upgrade history; an older release starts if allowed, otherwise refuses
+   with the oldest possible release. After a downgrade the next upgrade
+   rebuilds its own structures from the old data. Fail closed: a
+   restriction of access that an older release cannot read moves the
+   restricted item out of the structures the older release reads, so after
+   a downgrade the item gives no access (less, never more) and does not
+   come back. The server listens at once and answers "starting" until the
+   updates are done, and answers "shutting down" while it drains, so open
+   clients can explain what happens. Every start with pending work takes a
+   snapshot first and restores it on failure. Patch releases have no
+   database changes. A small own update runner replaces `sqlx::migrate!`;
+   it also merges the preview updates of development into one update per
+   release. Not implemented yet: see @updates.],
+  [Users can go back by starting the older image, which is the only step a
+   volunteer can be expected to take. Keeping old structures until the
+   window has passed costs a little disk space and the discipline of
+   writing old and new structures together, but no down-migration scripts
+   that would have to be written and tested for every change. Rebuilding
+   from the old data instead of keeping newer data on the side keeps the
+   model simple (new-only data is lost on a downgrade, accepted by the
+   user). `sqlx::migrate!` refuses databases with unknown or merged
+   migrations.],
+  [Removals are delayed by at least three minors. Every update must be
+   written as additive part, rebuild and removal, and the newer release
+   must keep old structures up to date while their removal is pending. The
+   window is never shortened; after a downgrade, restricted items (for
+   example grants with an expiry date) must be granted again by hand, and
+   the release notes say so. The mechanism must ship in 1.0.0: releases before it cannot
+   be returned to. CI enforces the rules: a database check with a schema
+   snapshot, a `db-change` notice, and a release check on
+   `release/<version>` branches; new kinds of stored values in a patch are
+   caught only by tests and fallbacks.],
+)
