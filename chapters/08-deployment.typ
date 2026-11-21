@@ -71,4 +71,5 @@ localhost.
   added.
 - *Logs:* to standard output; level via `RUST_LOG` (default `info`).
 - *Upgrades:* replace the binary or image; pending migrations run at
-  start-up.
+  start-up. The planned update and downgrade model for 1.0 is described in
+  @updates.
