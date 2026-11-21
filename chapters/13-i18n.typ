@@ -7,7 +7,7 @@ messages, part names and sort order in the language of the user's browser
 (English if that language is not shipped), while all data is stored and
 shown exactly as entered. Requirements: F-I18N-001, R-I18N-001 to
 R-I18N-010; decision @d-i18n-fluent. The work is done in phases; this
-chapter describes the target and marks what exists.
+chapter describes the target and marks what exists. Shipped: English and German.
 
 == Principles
 
@@ -42,5 +42,15 @@ chapter describes the target and marks what exists.
   [3], [Part names and the default set name composed in the browser; search on components. Done (migration 0009).],
   [4], [All client texts in the catalogue (about 450 English messages); a lint forbids literal texts; a pseudo-locale test run marks every translated text. Done.],
   [5], [All displayed lists sorted in the browser with the UI language's collation (`Intl.Collator`, numbers by value). Done.],
-  [later], [German catalogue, translated user guide, translation platform.],
+  [6], [German shipped: every message translated (`locales/de`, form of address "du"), German key names B, Es, As, Des, Ges, H (also search words; migration 0010 rebuilds the index), checks for completeness and plural forms, a German end-to-end run. The German text is an agent draft that the maintainer still reviews (`scripts/i18n-review.py` prints English and German side by side). The client grew by about 11 KB (gzip). Done.],
+  [later], [Translated user guide (the guide and its screenshots are English; the screenshot script forces an English browser), translation platform.],
+)
+
+== Languages
+
+#table(
+  columns: (auto, auto, 1fr),
+  [Language], [State], [Notes],
+  [English], [source], [All messages; fallback for every missing message.],
+  [German], [draft, under review], [Complete (a test fails on a missing message). "Klarinette in B 1 & 2", dates "24.12.2026", sorting with umlauts by the browser's German collation.],
 )
