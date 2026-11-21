@@ -293,6 +293,19 @@ every release checked against older releases (upgrade/downgrade matrix),
 by fallbacks for unknown values on every stored enum (like `ErrorCode`,
 phase 0), and by the release checklist line "patch: no new stored values".
 
+*Which check runs where* (R-OPS-032). Only what can differ between
+platforms runs on every supported system; everything else runs once, on
+Linux x86_64.
+
+#table(
+  columns: (1fr, 1fr),
+  [Every supported platform], [Linux x86_64 only],
+  [Rust tests (`cargo test`); release build of the program; short start (smoke) test of the built program. Linux x86_64 and arm64, Windows x86_64, macOS arm64 block; macOS x86_64 runs but does not block (R-OPS-042).], [Submodule pinning, agent-docs check, UI-literals lint, rustfmt, clippy (host and wasm32), documentation builds, database check (R-OPS-038), `db-change` notice, release check.],
+)
+
+The container image is built for linux/amd64 and linux/arm64 at least for
+every release (R-OPS-028).
+
 == Platforms <updates-platforms>
 
 #table(
@@ -310,6 +323,25 @@ phase 0), and by the release checklist line "patch: no new stored values".
 32-bit systems and Raspberry Pi models before the 3 are not supported.
 Windows on ARM is not required (if it works, fine).
 
+=== Program downloads
+
+Each published release offers program archives built by CI (R-OPS-029):
+`linux-x86_64`, `linux-arm64`, `windows-x86_64` (`.zip`),
+`macos-arm64` and `macos-x86_64`, plus a `SHA256SUMS` file
+(`sha256sum -c SHA256SUMS`). The program contains the web client, so it
+is a single file (R-OPS-030), and without `--data-dir` it uses the usual
+data folder of the system (R-OPS-031).
+
+The programs are *unsigned* for now. The user guide explains the first
+start: Windows SmartScreen ("Windows protected your PC" → "More info" →
+"Run anyway"; typically only when a downloaded file is double-clicked in
+Explorer, usually not when started from a terminal or as a service) and
+macOS Gatekeeper ("cannot be verified" → right-click → Open, or allow it in
+System Settings). Signing is possible later: on Windows with a code-signing
+certificate, Microsoft Trusted Signing, or free signing for open-source
+projects through the SignPath Foundation; on macOS with the Apple Developer
+Program (about 99 USD a year) and notarisation.
+
 === Portability findings
 
 #table(
@@ -319,7 +351,7 @@ Windows on ARM is not required (if it works, fine).
   [2], [Graceful shutdown listens for SIGTERM only under `cfg(unix)`; Ctrl+C works everywhere. Fine as it is.], [none],
   [3], [The plain program needs the web client in a separate folder (`--web-dir`).], [embed it (R-OPS-030)],
   [4], [The default data directory is `data`, relative to the working directory, which depends on how the program is started.], [usual folder per OS (R-OPS-031)],
-  [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [CI matrix, multi-arch images (R-OPS-032)],
+  [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [platform-dependent checks on all systems, multi-arch images (R-OPS-032)],
   [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [treat "target exists" after a failed rename as success; test on Windows],
   [7], [The backup target path reaches SQLite through `to_string_lossy`; a path that is not valid UTF-8 would be changed.], [refuse such paths with a clear message],
   [8], [A Pi 3 has 1 GB of memory and is slow to compile Rust; performance targets were measured on a laptop, not on any Pi. Snapshots take space on the SD card.], [build elsewhere; measure on a Pi 3],
@@ -377,7 +409,7 @@ change with the user's consent.
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
   [0 (in 1.0)], [Fallback values for stored enums; release checklist line "patch: no new stored values"; Windows folder sync fix (finding 1)], [S],
-  [1], [CI on Linux arm64, Windows and macOS; program downloads; web client inside the program; OS data folder (R-OPS-029 to R-OPS-032)], [M],
+  [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS; program archives with `SHA256SUMS`; web client inside the program; OS data folder; user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],
   [2], [Fixtures and the upgrade/downgrade test matrix (meaningful from the second release)], [M],
   [3], [Storage modules, file store interface, PDF engine module, conformance suites (F-TECH-002)], [L],
 )
