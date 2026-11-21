@@ -393,7 +393,7 @@ same steps to do by hand.
   [Raspberry Pi 3, 4, 5 or newer, 64-bit OS], [Docker Compose], [arm64], [Buildable (`docker buildx --platform linux/arm64`), never tested → published arm64 image; smoke test on a Pi (R-OPS-027).],
   [Windows, macOS with Docker Desktop], [Docker Compose], [amd64, arm64], [Uses the Linux images → covered by multi-architecture images.],
   [Linux], [plain program], [x86_64, arm64], [Works (needs `--web-dir`) → program download (R-OPS-029).],
-  [Windows], [plain program], [x86_64], [Blocked: uploads fail (finding 1) → fix, CI, download.],
+  [Windows], [plain program], [x86_64], [Upload blocker fixed (finding 1), compiles, never run → CI, download.],
   [macOS (Apple silicon)], [plain program], [arm64], [Never built → CI, download.],
   [macOS (Intel), _should_], [plain program], [x86_64], [Never built → built and smoke-tested in CI, not a release blocker (R-OPS-042).],
 )
@@ -425,12 +425,12 @@ Program (about 99 USD a year) and notarisation.
 #table(
   columns: (auto, 1fr, auto),
   [\#], [Finding], [Action],
-  [1], [`blobs.rs` (`sync_dir`) syncs the blob folder after a rename with `File::open(dir)?.sync_all()`. Folders cannot be opened like that on Windows, so every upload would fail.], [sync the folder on Unix only],
+  [1], [`blobs.rs` (`sync_dir`) synced the blob folder after a rename with `File::open(dir)?.sync_all()`. Folders cannot be opened like that on Windows, so every upload would fail.], [done: the folder is synced on Unix only],
   [2], [Graceful shutdown listens for SIGTERM only under `cfg(unix)`; Ctrl+C works everywhere. Fine as it is.], [none],
   [3], [The plain program needs the web client in a separate folder (`--web-dir`).], [embed it (R-OPS-030)],
   [4], [The default data directory is `data`, relative to the working directory, which depends on how the program is started.], [usual folder per OS (R-OPS-031)],
   [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [platform-dependent checks on all systems, multi-arch images (R-OPS-032)],
-  [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [treat "target exists" after a failed rename as success; test on Windows],
+  [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [done: "target exists" after a failed rename counts as success; still to test on Windows],
   [7], [The backup target path reaches SQLite through `to_string_lossy`; a path that is not valid UTF-8 would be changed.], [refuse such paths with a clear message],
   [8], [A Pi 3 has 1 GB of memory and is slow to compile Rust; performance targets were measured on a laptop, not on any Pi. Snapshots take space on the SD card.], [build elsewhere; measure on a Pi 3],
   [9], [Building on Windows needs a C compiler for `ring` (TLS) and SQLite (assumption, check in CI).], [CI on Windows],

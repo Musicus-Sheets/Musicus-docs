@@ -155,8 +155,12 @@ The unit offers:
   the way, and aborts at the upload limit. Returns a `PendingBlob` (temporary
   path, hash, size).
 - `commit(pending)`: moves the file to its final path with an atomic
-  rename, after `fsync` of file and directory. If the hash already exists,
-  the temporary file is deleted instead (deduplication).
+  rename, after `fsync` of the file, then syncs the directory (on Unix;
+  Windows cannot open a directory for that and journals the rename itself).
+  If the hash already exists, the temporary file is deleted instead
+  (deduplication); so it is when the rename fails because the same content
+  arrived meanwhile (two simultaneous uploads, or on Windows a rename onto a
+  blob that is open).
 - `discard(pending)`, `put_bytes(bytes)` (for thumbnails), `path(sha256)`.
 
 A blob path therefore either does not exist or holds complete content. On
