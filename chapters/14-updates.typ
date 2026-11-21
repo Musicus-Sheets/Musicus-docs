@@ -15,7 +15,7 @@ one without data loss, and for a limited time an installation can go back to
 an older release by simply starting it. Musicus runs with Docker Compose
 (preferred) and as a plain program on Linux, Windows and macOS, including
 64-bit Raspberry Pi computers. Requirements: F-OPS-005, F-OPS-006, F-OPS-007,
-F-TECH-002, R-OPS-010 to R-OPS-037, R-TECH-004 to R-TECH-007; decision
+F-TECH-002, R-OPS-010 to R-OPS-041, R-TECH-004 to R-TECH-007; decision
 @d-update-model.
 
 == Today (version 0.1)
@@ -39,7 +39,7 @@ one baseline for 1.0.0, and every guarantee below starts there.
 #table(
   columns: (auto, 1fr),
   [Rule], [Meaning],
-  [Version numbers], [`major.minor.patch`. A minor release brings features and may contain one database update. A patch release contains fixes only and never a database update (R-OPS-018).],
+  [Version numbers], [`major.minor.patch`. A minor release brings features and may contain one database update. A patch release contains fixes only, never a database update (R-OPS-018) and never a new kind of stored value (R-OPS-041).],
   [No back-ports], [Old minor releases get no new patches; a fix comes with the next release. The rhythm of releases is irregular.],
   [How an update is installed], [Docker Compose: `docker compose pull && docker compose up -d` (R-OPS-010). Plain program: stop, replace the program file, start.],
   [No update check], [Musicus never asks the internet for new releases (R-OPS-025). Administrators learn about releases from the release page and the user guide site.],
@@ -213,6 +213,9 @@ during implementation, R-OPS-023):
   developer starts from a fresh demo database.
 + Release builds refuse to start when preview files are present
   (R-OPS-024); the release workflow fails before publishing.
++ The merge happens in a release pull request from a branch
+  `release/<version>`; only such a pull request may delete previews and
+  add the merged update (@updates-ci).
 
 #why[
   `sqlx::migrate!` refuses a database with an applied migration it does not
@@ -223,6 +226,38 @@ during implementation, R-OPS-023):
   today (`0001`–`0010` applied) are recognised once and marked as having
   the 1.0 baseline.
 ]
+
+== Checks in continuous integration <updates-ci>
+
+The rules above are enforced by three checks, built together with phase 0
+(the new runner and the preview folder), not earlier.
+
+#table(
+  columns: (auto, 1fr, auto),
+  [Check], [Fails (or reports) when], [Kind],
+  [Database check (R-OPS-038)], [In a normal pull request: a database update file is added outside `migrations/preview/` (release updates are reserved for release pull requests); a released update or a preview already on `main` is modified or deleted (changes go into a new preview); the schema snapshot is outdated, or changed without a new preview.], [blocking],
+  [`db-change` notice (R-OPS-039)], [A pull request adds a preview: label `db-change` and the note "This PR changes the database; the next release must be a minor release (x.Y.0), not a patch."], [informational],
+  [Release check (R-OPS-040)], [On `release/<version>`: a patch version with any preview or a database update for this version; a minor or major version whose merged update `migrations/<version>.sql` does not list exactly the removed previews, or with previews left.], [blocking],
+)
+
+*Schema snapshot.* A script (for example `scripts/db-schema.sh`) applies
+all updates to an empty database and writes the resulting structure to a
+checked-in file (for example `crates/musicus-server/schema.sql`). CI
+regenerates it and compares. The diff also shows every schema change in
+review. Code that expects a column no update creates is caught by the
+`test` job.
+
+*Release pull requests* are recognised by the branch name
+`release/<version>`. Only they may delete previews and add the merged
+update.
+
+*Limitation.* No check sees new kinds of values written into existing
+columns: a new role, a new system layout region kind, a new ink format
+version, a new error code stored in import problems. A patch must not
+write such values either (R-OPS-041). This is covered by the test data of
+every release checked against older releases (upgrade/downgrade matrix),
+by fallbacks for unknown values on every stored enum (like `ErrorCode`,
+phase 0), and by the release checklist line "patch: no new stored values".
 
 == Platforms <updates-platforms>
 
@@ -290,7 +325,10 @@ change with the user's consent.
 - *Failure:* an update that fails on purpose ends with the snapshot restored
   (R-OPS-020).
 - *Release check:* no database update in a patch release, no preview files,
-  version on the title pages, requirements tag present.
+  merged update lists exactly the removed previews (@updates-ci), version on
+  the title pages, requirements tag present.
+- *Stored values:* data written by the newest patch of each minor is read by
+  the first release of that minor (R-OPS-041).
 
 == Roadmap <updates-roadmap>
 
@@ -301,7 +339,8 @@ change with the user's consent.
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
   [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
-  [0 (in 1.0)], [Fallback values for stored enums; Windows folder sync fix (finding 1)], [S],
+  [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
+  [0 (in 1.0)], [Fallback values for stored enums; release checklist line "patch: no new stored values"; Windows folder sync fix (finding 1)], [S],
   [1], [CI on Linux arm64, Windows and macOS; program downloads; web client inside the program; OS data folder (R-OPS-029 to R-OPS-032)], [M],
   [2], [Fixtures and the upgrade/downgrade test matrix (meaningful from the second release)], [M],
   [3], [Storage modules, file store interface, PDF engine module, conformance suites (F-TECH-002)], [L],

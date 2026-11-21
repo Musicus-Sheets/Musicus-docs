@@ -417,5 +417,8 @@ the introduction.
    must keep old structures up to date while their removal is pending. A
    restriction of access that cannot be mirrored into the old data shortens
    the window. The mechanism must ship in 1.0.0: releases before it cannot
-   be returned to.],
+   be returned to. CI enforces the rules: a database check with a schema
+   snapshot, a `db-change` notice, and a release check on
+   `release/<version>` branches; new kinds of stored values in a patch are
+   caught only by tests and fallbacks.],
 )
