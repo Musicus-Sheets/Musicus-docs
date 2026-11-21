@@ -397,8 +397,13 @@ the introduction.
    the release that ran last, the oldest release allowed to start and the
    upgrade history; an older release starts if allowed, otherwise refuses
    with the oldest possible release. After a downgrade the next upgrade
-   rebuilds its own structures from the old data. Changes that restrict
-   access count as removals. Every start with pending work takes a
+   rebuilds its own structures from the old data. Fail closed: a
+   restriction of access that an older release cannot read moves the
+   restricted item out of the structures the older release reads, so after
+   a downgrade the item gives no access (less, never more) and does not
+   come back. The server listens at once and answers "starting" until the
+   updates are done, and answers "shutting down" while it drains, so open
+   clients can explain what happens. Every start with pending work takes a
    snapshot first and restores it on failure. Patch releases have no
    database changes. A small own update runner replaces `sqlx::migrate!`;
    it also merges the preview updates of development into one update per
@@ -414,9 +419,10 @@ the introduction.
    migrations.],
   [Removals are delayed by at least three minors. Every update must be
    written as additive part, rebuild and removal, and the newer release
-   must keep old structures up to date while their removal is pending. A
-   restriction of access that cannot be mirrored into the old data shortens
-   the window. The mechanism must ship in 1.0.0: releases before it cannot
+   must keep old structures up to date while their removal is pending. The
+   window is never shortened; after a downgrade, restricted items (for
+   example grants with an expiry date) must be granted again by hand, and
+   the release notes say so. The mechanism must ship in 1.0.0: releases before it cannot
    be returned to. CI enforces the rules: a database check with a schema
    snapshot, a `db-change` notice, and a release check on
    `release/<version>` branches; new kinds of stored values in a patch are

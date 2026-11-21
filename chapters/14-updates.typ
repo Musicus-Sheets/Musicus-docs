@@ -15,7 +15,7 @@ one without data loss, and for a limited time an installation can go back to
 an older release by simply starting it. Musicus runs with Docker Compose
 (preferred) and as a plain program on Linux, Windows and macOS, including
 64-bit Raspberry Pi computers. Requirements: F-OPS-005, F-OPS-006, F-OPS-007,
-F-TECH-002, R-OPS-010 to R-OPS-041, R-TECH-004 to R-TECH-007; decision
+F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decision
 @d-update-model.
 
 == Today (version 0.1)
@@ -72,10 +72,14 @@ newer release can represent is lost on a downgrade and does not come back on
 the next upgrade (R-OPS-016). Going back never gives anyone access the newer
 release denied (R-OPS-017).
 
-Interpretations to confirm: "minor" counts release lines in release order
-across majors (2.0 follows 1.9); after several upgrades in a row
+*Counting (confirmed).* "The three previous minor releases" are the three
+release lines released before the current one, in release order, whatever
+their numbers. 1.10 may follow 1.9; then 2.0 follows 1.10, not 1.9. With
+1.8 → 1.9 → 1.10 → 2.0 the targets from 2.0 are 1.10, 1.9 and 1.8. Any
+patch of such a line may be started. After several upgrades in a row
 (1.0 → 1.5 → 1.6) each release the installation was upgraded from stays a
-target for three months after that upgrade.
+target for three months after its own upgrade. The window always holds;
+nothing shortens it, not even a restriction of access.
 
 == Database updates: additive part and removal part <updates-model>
 
@@ -119,13 +123,17 @@ Rules for whoever writes a database update:
   tolerate unknown values. Error codes already have such a fallback
   (`unknown`); the other stored enums (`Role`, `RegionKind`, …) get one in
   phase 0.
-- *Restrictions count as removals* (R-OPS-017). An older release ignores a
-  restriction it does not know and would grant too much. The newer release
-  therefore writes the effect of the restriction into the data the older one
-  reads (an expired grant is removed from the old grant table), or, where
-  that is impossible, raises the oldest release allowed to start as soon as
-  the restriction is first used, which shortens the window. The release
-  notes name such a change.
+- *Fail closed* (R-OPS-017). Anything an older release cannot fully
+  understand must be invisible to it. A restriction introduced by a newer
+  release (for example a grant with an expiry date) is stored so that the
+  older release does not see the restricted item at all: the newer release
+  moves the item out of the structures the older release reads (the grant
+  leaves the old grant table and lives in a new table with its expiry).
+  After a downgrade the older release grants no access for it: less access,
+  never more. Being new-only data, the item does not come back on the next
+  upgrade (R-OPS-016); librarians grant it again by hand. The release notes
+  of a release that introduces a restriction say so. The window is never
+  shortened.
 - Derived data (search index, system layouts) is rebuilt after any start on
   a database last used by another release.
 - All release updates stay in the program for ever, because any older
@@ -140,7 +148,7 @@ A small set of tables (proposed names) replaces `_sqlx_migrations`:
   columns: (auto, 1fr, auto),
   [Table / key], [Meaning], [Written],
   [`musicus_meta.last_version`], [The release that last started successfully.], [every start],
-  [`musicus_meta.oldest_allowed`], [The oldest release allowed to start; the check an older release makes before anything else.], [when a removal runs or a restriction forces it],
+  [`musicus_meta.oldest_allowed`], [The oldest release allowed to start; the check an older release makes before anything else.], [when a removal runs],
   [`musicus_meta.marker_format`], [Version of these tables, so that every release from 1.0 on can read them.], [baseline],
   [`musicus_updates`], [One row per applied update: name, release, kind (`release` or `preview`), time of the additive part, time of the removal part (empty while pending), the previews it contains.], [when a part runs],
   [`musicus_upgrades`], [History: from release, to release, time. Source of rule (b) of the window.], [every upgrade and downgrade],
@@ -149,7 +157,10 @@ A small set of tables (proposed names) replaces `_sqlx_migrations`:
 == Start-up sequence
 
 Every command that uses the database follows the same order; `backup`
-stops after step 1 (R-OPS-021).
+stops after step 1 (R-OPS-021). `serve` first opens the listener and
+answers every request with HTTP 503 `server_starting` (with
+`Retry-After`) until the last step is done (R-OPS-045); `/api/health`
+reports `ok` only then.
 
 + Open the database without changing it and read the marker. An empty data
   directory gets the 1.0 baseline and all updates in one go (removals as
@@ -171,7 +182,7 @@ stops after step 1 (R-OPS-021).
   more snapshots of the same state.
 + Write `last_version` and, for an up- or downgrade, a row in
   `musicus_upgrades`; rebuild derived data if another release ran last;
-  start serving.
+  switch the router from `server_starting` to normal service.
 
 #why[
   An automatic snapshot plus automatic restore turns a failed update into
@@ -180,6 +191,29 @@ stops after step 1 (R-OPS-021).
   blob folder; a future clean-up of unused files must count files
   referenced by kept snapshots as used (R-FILE-009).
 ]
+
+== Open clients during shutdown, start and update <updates-clients>
+
+Tablets stay open for hours; an update must neither lose a marking nor
+interrupt a musician (F-OPS-008).
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  [Situation], [Server], [Web client],
+  [Stop signal (R-OPS-043)], [Accepts no further changes; answers 503 `server_shutting_down` with `Retry-After`; finishes writes in progress, checkpoints and closes the database, exits.], [Banner "Server is shutting down"; actions that need the server are blocked (R-OPS-044).],
+  [Unreachable (R-OPS-044)], [—], [Banner "Server not reachable"; what is loaded (an open part) stays readable; drawing continues.],
+  [Starting (R-OPS-045, R-OPS-046)], [Listens at once; 503 `server_starting` until snapshot, updates and checks are done.], [Banner "Server is starting"; polls a status endpoint and removes the banner by itself when the server is ready.],
+  [Unsaved markings (R-OPS-047)], [—], [Kept in the open tab's memory, saved automatically when the server is back (usual merge); nothing stored on the device (R-SEC-001); closing the tab with unsaved markings while the server is away warns (`beforeunload`).],
+  [New version (R-OPS-048)], [`GET /api/version` returns the new version.], [Notice "Musicus has been updated"; saves what is pending, reloads automatically at a safe moment, never while reading or drawing.],
+)
+
+Consequences: the start-up sequence opens the listener before the
+database updates; two new error codes `server_shutting_down` and
+`server_starting` join `ErrorCode` (with English messages and catalogue
+texts); the graceful shutdown of today (R-OPS-008) keeps the listener open
+during the drain so clients get the dedicated answer. The Docker health
+check reports the container as starting meanwhile; long updates on a Pi
+may need a longer `start-period`.
 
 == Backup, restore and export
 
@@ -269,11 +303,12 @@ phase 0), and by the release checklist line "patch: no new stored values".
   [Windows, macOS with Docker Desktop], [Docker Compose], [amd64, arm64], [Uses the Linux images → covered by multi-architecture images.],
   [Linux], [plain program], [x86_64, arm64], [Works (needs `--web-dir`) → program download (R-OPS-029).],
   [Windows], [plain program], [x86_64], [Blocked: uploads fail (finding 1) → fix, CI, download.],
-  [macOS], [plain program], [arm64], [Never built → CI, download.],
+  [macOS (Apple silicon)], [plain program], [arm64], [Never built → CI, download.],
+  [macOS (Intel), _should_], [plain program], [x86_64], [Never built → built and smoke-tested in CI, not a release blocker (R-OPS-042).],
 )
 
 32-bit systems and Raspberry Pi models before the 3 are not supported.
-The exact architectures per system are a proposal (R-OPS-026).
+Windows on ARM is not required (if it works, fine).
 
 === Portability findings
 
@@ -339,6 +374,7 @@ change with the user's consent.
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
   [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
+  [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
   [0 (in 1.0)], [Fallback values for stored enums; release checklist line "patch: no new stored values"; Windows folder sync fix (finding 1)], [S],
   [1], [CI on Linux arm64, Windows and macOS; program downloads; web client inside the program; OS data folder (R-OPS-029 to R-OPS-032)], [M],
@@ -346,6 +382,8 @@ change with the user's consent.
   [3], [Storage modules, file store interface, PDF engine module, conformance suites (F-TECH-002)], [L],
 )
 
-Not part of this plan: a notice for open browser tabs after an update
-(older client against newer server), a portable export format, a second
-database or file store implementation.
+Open: the container registry and image name are decided when the release
+workflow is built (Docker Hub and/or GitHub Container Registry likely).
+
+Not part of this plan: a portable export format, a second database or file
+store implementation.
