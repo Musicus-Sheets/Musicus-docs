@@ -34,7 +34,7 @@ the server keeps on disk. @fig-context shows them at run time.
   [`dto`, `ink`],
 
   [`musicus-server`],
-  [Everything that runs on the server: authentication, access control, the library, file storage and serving, concert programmes, annotation storage, and the command line (serve, create an admin, backup, health check).],
+  [Everything that runs on the server: authentication, access control, the library, file storage and serving, concert programmes, annotation storage, and the command line (serve, create an admin, backup, restore, health check).],
   [13 modules, see @server],
 
   [`musicus-web`],

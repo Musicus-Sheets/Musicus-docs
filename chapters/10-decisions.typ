@@ -407,9 +407,9 @@ the introduction.
    snapshot first and restores it on failure. Patch releases have no
    database changes. A small own update runner replaces `sqlx::migrate!`;
    it also merges the preview updates of development into one update per
-   release. The runner, the window and the preview merge are implemented;
-   snapshots, the start-up answers and the CI checks are not yet (see
-   @updates).],
+   release. The runner, the window, the preview merge, the snapshots with
+   automatic restore and the backup and restore commands are implemented;
+   the start-up answers and the CI checks are not yet (see @updates).],
   [Users can go back by starting the older image, which is the only step a
    volunteer can be expected to take. Keeping old structures until the
    window has passed costs a little disk space and the discipline of

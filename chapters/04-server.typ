@@ -68,14 +68,16 @@ cache through `state::App`; `auth` also reads sessions through it.
 
 `config` declares the command line with clap. Every option of `serve` can
 also be set through an environment variable (`MUSICUS_*`), which is how the
-container image is configured. Four subcommands exist:
+container image is configured. Six subcommands exist:
 
 #table(
   columns: (auto, 1fr),
   [Command], [What it does],
   [`serve`], [Runs the server. Creates the first admin if the database has no users (see below).],
   [`create-admin`], [Inserts an admin user and prints a one-time invite link.],
-  [`backup --to <file>`], [Writes a consistent copy of the database with `VACUUM INTO`, safe while the server runs.],
+  [`backup --to <file>`], [Writes a consistent copy of the database with `VACUUM INTO` on a read-only connection, safe while the server runs; never runs database updates, so it works with data of any release.],
+  [`restore --from <file>`], [Replaces the database of a stopped installation with a backup or snapshot; keeps the replaced one in `snapshots/` (@updates).],
+  [`retry-update`], [After a failed database update: lets the same program try it again at its next start.],
   [`healthcheck`], [Sends `GET /api/health` over a raw TCP connection and exits 0 or 1.],
 )
 
