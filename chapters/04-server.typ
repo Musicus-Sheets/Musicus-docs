@@ -23,7 +23,8 @@ these units:
   table.cell(rowspan: 2)[Security], [`auth`], [Passwords, session tokens, the `AuthUser` extractor, CSRF check, login rate limiter.],
   [`access`], [The rule "who may read which part", as an SQL fragment.],
   table.cell(rowspan: 4)[Storage], [`state`], [`App`: the shared state handed to every handler; `Settings`.],
-  [`db`], [SQLite connection pools, migrations, online backup.],
+  [`db`], [SQLite connection pools, database updates at start, online backup.],
+  [`updates`], [The own update runner: update files, release list, version marker, downgrade window (@updates).],
   [`blobs`], [Content-addressed file store on disk.],
   [`cache`], [In-memory LRU cache of hot sheet files.],
   table.cell(rowspan: 2)[Formats], [`processors`], [Recognises uploaded files and extracts page count and thumbnail.],
@@ -125,8 +126,10 @@ user-specific is read from the database per request.
   never wait for the writer.
 
 `Db::open` sets WAL mode, `synchronous = NORMAL`, foreign keys, a busy
-timeout and the page cache size, then runs the embedded migrations
-(`migrations/*.sql`, applied by `sqlx::migrate!` at start-up). The schema is
+timeout and the page cache size, then brings the database to the program's
+version with the own update runner (module `updates`, @updates-runner):
+release updates `migrations/X.Y.0.sql` and, in development builds, preview
+updates `migrations/preview/*.sql`, embedded at build time. The schema is
 described in @data.
 
 Two helpers are used throughout the handlers: `now()` (Unix seconds) and

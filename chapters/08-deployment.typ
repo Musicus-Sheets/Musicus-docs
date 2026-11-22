@@ -70,6 +70,7 @@ localhost.
   blobs referenced by the backup already exist, because files are only ever
   added.
 - *Logs:* to standard output; level via `RUST_LOG` (default `info`).
-- *Upgrades:* replace the binary or image; pending migrations run at
-  start-up. The planned update and downgrade model for 1.0 is described in
-  @updates.
+- *Upgrades:* replace the binary or image; pending database updates run
+  at start-up. Starting an older release inside the downgrade window works;
+  outside it the program refuses with a message naming the oldest release
+  that can start (@updates). Snapshots before updates are still planned.
