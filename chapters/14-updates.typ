@@ -147,25 +147,29 @@ Rules for whoever writes a database update:
 
 == Fallbacks for unknown stored values <updates-fallbacks>
 
-An older release reads what a newer one wrote. Each value that a newer
-release could extend is read with a fallback that fails closed: never more
-access, never a wrong view, no server error, and nothing read through a
-fallback is written back (R-OPS-041, R-OPS-017).
+An older release reads what a newer one wrote. The types of the program
+stay exact: there are no catch-all "unknown" variants, because they would
+only move the problem from reading a value to every place that uses it.
+Instead each value that a newer release could extend is handled where it
+is read: the value fails to parse, and that place decides once what this
+means. The decision fails closed: never more access, never a wrong view, no
+server error. A value that did not parse never exists in the program, so it
+cannot be written back (R-OPS-041, R-OPS-017).
 
 #table(
   columns: (auto, 1fr),
-  [Stored value], [An unknown value in an older release],
-  [Role (`users.role`)], [The account cannot log in (login, sessions and invite links are refused). It is not treated as a member, because a new role may have fewer rights. Admins see it as "Unknown role"; an unknown role is never stored, other changes keep it. If every admin had one, `musicus-server create-admin` creates a new admin.],
-  [Band kind in system layouts and corrections], [The page is shown whole. The system editor shows the band as "Unknown (newer version)" and saves the page only after every band has a known kind; the server refuses an unknown kind.],
-  [Layout state, layout or correction data it cannot read], [Treated as a failed detection (whole pages), or that page shown whole. The background detection never redoes a layout of a newer algorithm.],
-  [Ink format version, new kinds of marks], [The reader shows the page without its markings, says why, and does not let anyone draw on that page, so the stored markings stay as they are. The server never decodes stored pages. A new kind of mark needs a new format version.],
+  [Stored value], [Where it is read, and what an unknown value means there],
+  [Role (`users.role`)], [Login, sessions and invite links: refused, as for a disabled account. It is not treated as a member, because a new role may have fewer rights. The admin's user list shows the account as "Unknown role" and offers no role change; other changes keep the stored role. A request naming an unknown role is rejected as malformed. If every admin had one, `musicus-server create-admin` creates a new admin.],
+  [Pages and corrections of system layouts (e.g. a band kind it does not know)], [Each page and each correction is read on its own; one that does not parse is shown as a whole page. The system editor says the page was saved by a newer version and offers only resetting a correction. A request with an unknown band kind is rejected as malformed.],
+  [Layout state, a layout it cannot read at all], [Treated as a failed detection (whole pages). The background detection never redoes a layout of a newer algorithm.],
+  [Ink format version, new kinds of marks], [A version check when the reader decodes the page: it shows the page without its markings, says why, and does not let anyone draw on that page, so the stored markings stay as they are. The server never decodes stored pages. A new kind of mark needs a new format version.],
   [Import file and item states, proposals and changes it cannot read], [The file, piece or part is left out of the review, the proposals and the import, and its row is never changed.],
-  [Error codes stored in import problems], [Shown as an unknown error (`unknown`).],
+  [Error codes stored in import problems], [Shown as an unknown error (`unknown`, the forward-compatible error code of the API).],
   [Reader view settings, import language], [The default (no effect on access).],
 )
 
-The full inventory, with where each value is read, is kept in the agent
-documentation (`docs/agents/data-model.md`, "Stored values"). Tests write
+The full inventory, with the function that reads each value, is kept in the
+agent documentation (`docs/agents/data-model.md`, "Stored values"). Tests write
 such values directly into the database and check that the requests above
 behave as described. Not yet covered: data of real releases (the test
 matrix, phase 2).
