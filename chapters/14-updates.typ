@@ -6,9 +6,11 @@
   *This chapter is mostly a plan.* Implemented are the own update runner
   with the version marker, the downgrade window, the preview updates with
   their merge script, the development migrations as previews
-  (@updates-runner, first row of phase 0), and the database check with the
-  schema snapshot and the `db-change` notice (@updates-ci); everything else is planned, except where a section says
-  "today". Phase 0 of the roadmap
+  (@updates-runner, first row of phase 0), the snapshot before updates
+  with automatic restore, `backup` without updating and the `restore`
+  command (@updates-start, @updates-backup, second row), and the database
+  check with the schema snapshot and the `db-change` notice (@updates-ci);
+  everything else is planned, except where a section says "today". Phase 0 of the roadmap
   (@updates-roadmap) must be part of release 1.0.0, because a downgrade can
   only return to releases that already contain the mechanism.
 ]
@@ -27,10 +29,10 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-049, R-TECH-004 to R-TECH-007; decisio
 #table(
   columns: (auto, 1fr),
   [Topic], [State],
-  [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet. No snapshot yet.],
+  [Database updates], [The own update runner (@updates-runner) inside `Db::open`, at every start of `serve` and `create-admin`, with a snapshot before the work and an automatic restore on failure (@updates-start). The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet.],
   [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
   [Version], [0.1.0, written once as the workspace `version` of the root `Cargo.toml` (all crates inherit it). Implemented (phase 0): `musicus-server --version`, public `GET /api/version` and the "About Musicus" view print it; the title pages of the user guide and of this document take it from their build (`build.sh` → `typst --input version=…`), the guide site passes each release's version.],
-  [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after applying pending updates. Restoring is a manual file copy.],
+  [Backup and restore], [`backup` writes a copy with `VACUUM INTO` without updating the database; `restore --from` puts a backup or snapshot back (@updates-backup).],
   [Tests], [CI (`rust.yml`) on Linux x86_64 only.],
 )
 
@@ -221,44 +223,64 @@ search index (system layouts are not re-checked); a due removal runs only
 at a start; a stored version that cannot be read blocks removals; the
 program version stays 0.1.0 until the first release sets it.
 
-== Start-up sequence
+== Start-up sequence <updates-start>
 
-Every command that uses the database follows the same order; `backup`
-stops after step 1 (R-OPS-021). Implemented today: steps 1 to 4, 6 and 8
-without the snapshot and its restore, without the early listener, and with
-`backup` still running all steps. `serve` first opens the listener and
-answers every request with HTTP 503 `server_starting` (with
-`Retry-After`) until the last step is done (R-OPS-045); `/api/health`
-reports `ok` only then.
+Every command that writes the database follows the same order (`serve`,
+`create-admin`; `backup` and `restore` open the database read-only and run
+none of it, R-OPS-021). Implemented: steps 1 to 8 except the early listener;
+`serve` will first open the listener and answer every request with HTTP 503
+`server_starting` (with `Retry-After`) until the last step is done
+(R-OPS-045); `/api/health` reports `ok` only then.
 
-+ Open the database without changing it and read the marker. An empty data
-  directory gets all updates in one go (removals as
-  the window allows), with no snapshot.
 + A release build with preview updates refuses to start (R-OPS-024).
-+ If the own version is older than `oldest_allowed`: stop with a message
-  that names the oldest possible release (R-OPS-015); nothing is written.
++ If the note `update-failed.json` in the data directory names this very
+  program (same version and same update texts), stop at once with a message
+  that says what failed when and how to go on (restart guard, below).
++ Open the database without changing it and read the marker. If the own
+  version is older than `oldest_allowed`: stop with a message that names the
+  oldest possible release (R-OPS-015); nothing is written.
 + Plan the work: additive parts of own updates not yet applied, rebuilds
   (an older release ran since an update was applied), and due removals.
   Updates the program does not know (it is the older release) are ignored.
-+ If there is work: check free space, write a snapshot
-  `snapshots/musicus-<old version>-<time>.sqlite` with `VACUUM INTO`, keep
-  the three newest (R-OPS-019).
++ If there is work on existing data: check the free space (used size of the
+  database plus a tenth, at least 8 MB; otherwise stop with a message naming
+  the space needed, nothing written), write a snapshot
+  `snapshots/<UTC time>-<old version>-to-<new version>.sqlite` (for example
+  `20261122T143000Z-1.0.0-to-1.1.0.sqlite`) with `VACUUM INTO`, first under a
+  temporary name, and only then delete all but the three newest snapshots
+  (R-OPS-019). An empty data directory gets all updates in one go (removals as
+  the window allows), with no snapshot.
 + Run each part in its own transaction and record it.
-+ On any failure: close the database, put the snapshot back (also removing
-  `-wal` and `-shm`), and stop with a message that the update failed, the
-  data is unchanged and which release ran before (R-OPS-020). A note in the
-  data directory keeps a restart loop (Docker restart policy) from writing
-  more snapshots of the same state.
++ On any failure: close the database, move it (with its `-wal`) to
+  `snapshots/failed-<time>.sqlite` for diagnosis, put a copy of the snapshot
+  in its place, write the note `update-failed.json`, and stop with exit code 1
+  and a message that names the failed update, the snapshot, the failed copy
+  and the release that ran before, asks to report the problem, and explains
+  how to retry (R-OPS-020). On an empty data directory the failed file is
+  only set aside.
 + Write `last_version` and, for an up- or downgrade, a row in
   `musicus_upgrades`; rebuild derived data if another release ran last;
-  switch the router from `server_starting` to normal service.
+  remove a note of a failed update of this or an older version (a newer or
+  fixed program got past it); switch the router from `server_starting` to
+  normal service (planned).
+
+*Restart guard.* With a restart policy (Docker `restart: unless-stopped`)
+the failing program would start again and again. The note stops this: the
+same program (same version, same update texts) refuses at once without
+writing a snapshot, so the three kept snapshots and the state before the
+update stay. An older release (going back) starts normally and leaves the
+note in place; a fixed release, or a development build with a changed
+update text, tries again. `musicus-server retry-update` (with Docker
+`docker compose run --rm musicus retry-update`) removes the note when the
+administrator wants the same program to try again.
 
 #why[
   An automatic snapshot plus automatic restore turns a failed update into
   "start the old image again". Files need no snapshot: blobs are immutable
   and only added (R-FILE-004), so every snapshot stays consistent with the
-  blob folder; a future clean-up of unused files must count files
-  referenced by kept snapshots as used (R-FILE-009).
+  blob folder. No clean-up of unused files exists; when one is built
+  (R-FILE-009) it must count files referenced by any database in
+  `snapshots/` (snapshots, failed and replaced copies) as used.
 ]
 
 == Open clients during shutdown, start and update <updates-clients>
@@ -284,14 +306,27 @@ during the drain so clients get the dedicated answer. The Docker health
 check reports the container as starting meanwhile; long updates on a Pi
 may need a longer `start-period`.
 
-== Backup, restore and export
+== Backup, restore and export <updates-backup>
 
-- `backup` copies the database as it is and never applies updates
-  (R-OPS-021); today it migrates first.
-- New command `restore --from <file>` for a stopped installation: checks
-  that the file is a Musicus database, keeps the replaced database under a
-  new name, removes `-wal`/`-shm` and puts the copy in place (R-OPS-022).
-  The next start upgrades it if it is older.
+- `backup --to <file>` copies the database as it is with `VACUUM INTO` on a
+  read-only connection, without the update runner, so it works with the data
+  of any release, also one the program could not start on (R-OPS-021). It is
+  safe while the server runs and refuses an existing target or a path that is
+  not valid UTF-8.
+- `restore --from <file>` for a stopped installation (R-OPS-022): refuses
+  while a server uses the data directory (`serve` and `create-admin` hold a
+  shared operating-system lock on `musicus.lock`; `restore` needs it
+  exclusively; the system releases it when a process ends, so it never goes
+  stale; servers of releases before this command hold none); checks that the
+  file is an intact Musicus database (`quick_check`, version marker); copies
+  it next to the database, moves the replaced database (with its `-wal`) to
+  `snapshots/replaced-<time>.sqlite` and renames the copy into place. `blobs/`
+  is not touched; the command warns if the restored database refers to files
+  missing there. The next start runs the update runner normally: it upgrades
+  an older backup, and a release older than the one that wrote the backup
+  starts only within the downgrade window.
+- Snapshots, failed and replaced copies are never deleted except the
+  snapshots beyond the newest three.
 - Backups, snapshots and exports are not encrypted, like the database
   itself (plain SQLite, passwords as Argon2 hashes). The user guide says
   that they need the same care as the data directory (R-OPS-037).
@@ -490,7 +525,7 @@ Program (about 99 USD a year) and notarisation.
   [4], [The default data directory is `data`, relative to the working directory, which depends on how the program is started.], [usual folder per OS (R-OPS-031)],
   [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [platform-dependent checks on all systems, multi-arch images (R-OPS-032)],
   [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [done: "target exists" after a failed rename counts as success; still to test on Windows],
-  [7], [The backup target path reaches SQLite through `to_string_lossy`; a path that is not valid UTF-8 would be changed.], [refuse such paths with a clear message],
+  [7], [The backup target path reached SQLite through `to_string_lossy`; a path that is not valid UTF-8 would have been changed.], [done: such paths are refused with a clear message],
   [8], [A Pi 3 has 1 GB of memory and is slow to compile Rust; performance targets were measured on a laptop, not on any Pi. Snapshots take space on the SD card.], [build elsewhere; measure on a Pi 3],
   [9], [Building on Windows needs a C compiler for `ring` (TLS) and SQLite (assumption, check in CI).], [CI on Windows],
 )
@@ -527,7 +562,8 @@ change with the user's consent.
   is refused unchanged (R-OPS-015); the three-month rule is tested with a
   manipulated upgrade time.
 - *Failure:* an update that fails on purpose ends with the snapshot restored
-  (R-OPS-020).
+  (R-OPS-020; done with test programs in `tests/snapshots.rs`, together
+  with the snapshot rules, the restart guard, `backup` and `restore`).
 - *Release check:* no database update in a patch release, no preview files,
   merged update lists exactly the removed previews (@updates-ci); workspace
   version equals the branch name and the title pages show it (stage 1 of
@@ -541,7 +577,7 @@ change with the user's consent.
   columns: (auto, 1fr, auto),
   [Phase], [Content], [Effort],
   [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script with verified simplification; the development migrations `0001`–`0010` as previews (done, @updates-runner; the 1.0.0 update is simplified by hand at the release)], [L],
-  [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
+  [0 (in 1.0)], [Snapshot before updates, automatic restore with restart guard, `backup` without updating, `restore` command (done, @updates-start, @updates-backup)], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
   [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],

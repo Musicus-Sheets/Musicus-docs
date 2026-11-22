@@ -68,11 +68,21 @@ localhost.
 - *Version:* `GET /api/version` (no login), `musicus-server --version`, or
   "About Musicus" in the web client name the running release.
 - *Backup:* `musicus-server backup --to <file>` writes a consistent
-  database copy while the server runs; then copy `blobs/`. The order matters:
-  blobs referenced by the backup already exist, because files are only ever
-  added.
+  database copy while the server runs, without updating it; then copy
+  `blobs/`. The order matters: blobs referenced by the backup already exist,
+  because files are only ever added. Backups and snapshots are plain SQLite
+  files, as readable as the data directory.
+- *Restore:* with the server stopped, `musicus-server restore --from <file>`
+  checks that the file is a Musicus database, keeps the replaced one as
+  `snapshots/replaced-<time>.sqlite` and puts the copy in place; `blobs/` is
+  not touched. It refuses while a server holds the lock on `musicus.lock`.
+  With Docker: `docker compose stop musicus`, then
+  `docker compose run --rm musicus restore --from /data/<file>`.
 - *Logs:* to standard output; level via `RUST_LOG` (default `info`).
 - *Upgrades:* replace the binary or image; pending database updates run
   at start-up. Starting an older release inside the downgrade window works;
   outside it the program refuses with a message naming the oldest release
-  that can start (@updates). Snapshots before updates are still planned.
+  that can start (@updates). Before database updates the server writes a
+  snapshot to `snapshots/` (newest three kept) and puts it back by itself if
+  an update fails; the same program then refuses to retry until
+  `musicus-server retry-update` runs.
