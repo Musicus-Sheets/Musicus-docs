@@ -60,8 +60,9 @@ the server keeps on disk. @fig-context shows them at run time.
   database and the blob store. Both live in one data directory
   (`MUSICUS_DATA_DIR`), so a backup is "the database file plus a folder".
 - *Server to client code:* the same server process also serves the built
-  web client (HTML, WebAssembly, JavaScript, CSS) as static files, so the
-  whole application is one binary plus one folder of assets.
+  web client (HTML, WebAssembly, JavaScript, CSS), built into the program,
+  so the whole application is one file (a folder given with `--web-dir`
+  replaces the built-in client in development).
 - *Shared crate:* `musicus-api` is compiled into both the server and the
   client. A change to a request type therefore breaks the build of whichever
   side was not updated, instead of failing at run time.

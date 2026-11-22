@@ -276,8 +276,8 @@ the introduction.
 #decision(
   [Container images are usually based on a Linux distribution with a shell
    and tools like curl.],
-  [The runtime image contains only the server binary, the web assets and
-   the C runtime (`distroless/cc`), and runs as a non-root user.],
+  [The runtime image contains only the server program (with the web client
+   built in) and the C runtime (`distroless/cc`), and runs as a non-root user.],
   [Smaller image (about 70 MB), fewer packages to patch, and nothing an
    attacker could use to run further commands after a compromise.],
   [Health check and backup are subcommands of the server

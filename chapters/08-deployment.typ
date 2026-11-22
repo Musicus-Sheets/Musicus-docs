@@ -4,17 +4,68 @@
 
 == Build
 
-The server is a normal Cargo binary (`cargo build --release -p
-musicus-server`). The web client is built by the Dioxus CLI:
+The released program is a single file: the server with the web client
+built into it (R-OPS-030). The web client is built first, by the Dioxus CLI:
 
 + `scripts/fetch-pdfjs.sh` downloads the pinned pdf.js release from npm,
   verifies its SHA-512 checksum, and copies the legacy build into
   `crates/musicus-web/public/vendor/pdfjs/` (not committed).
 + `dx bundle --platform web --package musicus-web --release` compiles the
-  client to WebAssembly, runs `wasm-bindgen` and `wasm-opt`, bundles
-  `bridge.js`, the stylesheet and the `public/` folder, and writes
-  precompressed copies into `target/dx/musicus-web/release/web/public`.
-+ The server serves this folder when started with `--web-dir`.
+  client to WebAssembly, runs `wasm-bindgen` and `wasm-opt`, and bundles
+  `bridge.js`, the stylesheet and the `public/` folder into
+  `target/dx/musicus-web/release/web/public` (about 5.4 MB; empty the
+  folder before, so no file of an earlier build remains).
++ `cargo build --release -p musicus-server --features embed-web` builds
+  the server; its build script embeds every file of that folder (another
+  folder with `MUSICUS_WEB_DIST`, relative to the repository root) and stops
+  with the build commands if the client is missing. The program grows by
+  the size of the client.
+
+```sh
+./scripts/fetch-pdfjs.sh
+rm -rf target/dx/musicus-web/release
+dx bundle --platform web --package musicus-web --release
+cargo build --release --locked -p musicus-server --features embed-web
+```
+
+Without the feature the server builds without any client (development
+needs no `dx` output) and warns at start that only `/api` is served.
+`--web-dir <folder>` (`MUSICUS_WEB_DIR`) serves a client from a folder
+instead, also over a built-in one; in development this is the debug build
+of `dx build`.
+
+#why[
+  A plain program that needs a second folder next to it breaks as soon as
+  someone copies only the file or starts it from another working
+  directory. The build script embeds the files the same way it already
+  embeds the database updates, so no extra library is needed, and the
+  container image uses exactly the program offered for download. See
+  @server (`routes`) for how the files are served.
+]
+
+== Data folder
+
+Without `--data-dir` (or `MUSICUS_DATA_DIR`) the program uses the usual
+folder for application data of the system (R-OPS-031) and logs
+`data folder: <path>` at start, for every command:
+
+#table(
+  columns: (auto, 1fr),
+  [System], [Default data folder],
+  [Linux and other Unix], [`$XDG_DATA_HOME/musicus` if that variable holds an absolute path, else `~/.local/share/musicus`],
+  [macOS], [`~/Library/Application Support/Musicus`],
+  [Windows], [`%APPDATA%\Musicus` (the roaming application data of the user)],
+  [Container image], [`/data` (the image sets `MUSICUS_DATA_DIR`)],
+)
+
+The folders come from the environment variables `XDG_DATA_HOME`, `HOME`
+and `APPDATA`; if the needed one is missing, the program stops and asks for
+`--data-dir`. For compatibility, a program started without a configured
+folder in a working directory whose `data/musicus.sqlite` exists (the
+default before) keeps using `./data` and warns, naming the new default and
+`--data-dir data`; nothing is moved. This fallback is to be removed before
+1.0. Services (systemd, a Windows service as LocalSystem) should always set
+the folder explicitly.
 
 == Run-time layout
 
@@ -37,8 +88,8 @@ The `Dockerfile` has three stages:
   columns: (auto, 1fr),
   [Stage], [Purpose],
   [`dx`], [Installs the Dioxus CLI (slow, therefore its own cached stage).],
-  [`build`], [Fetches pdf.js, bundles the web client, builds the server.],
-  [runtime], [`gcr.io/distroless/cc-debian12:nonroot`: only the server binary and the web assets; runs as UID 65532; data in the volume `/data`; `HEALTHCHECK` runs `musicus-server healthcheck`.],
+  [`build`], [Fetches pdf.js, bundles the web client into an emptied folder, builds the server with the client built in (`--features embed-web`).],
+  [runtime], [`gcr.io/distroless/cc-debian12:nonroot`: only the server program (the same single file as the plain program); runs as UID 65532; data in the volume `/data`; `HEALTHCHECK` runs `musicus-server healthcheck`.],
 )
 
 #why[
