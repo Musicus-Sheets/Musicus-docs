@@ -8,7 +8,7 @@ so it is visible how the units described above work together.
 == First start and invitations <flow-invite>
 
 + `musicus-server serve` starts with an empty data directory. `open_state`
-  creates the database and runs the database updates (the 1.0.0 baseline); `bootstrap_admin` finds no
+  creates the database and runs the database updates (the previews 0001–0010 before the first release); `bootstrap_admin` finds no
   users, inserts `admin` without a password and an invite with a random
   token, and logs the link `<public-url>/invite/<token>`.
 + The administrator opens the link. The client route `Invite` asks

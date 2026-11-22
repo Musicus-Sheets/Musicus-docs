@@ -5,8 +5,8 @@
 #note[
   *This chapter is mostly a plan.* Implemented are the own update runner
   with the version marker, the downgrade window, the preview updates with
-  their merge script and the 1.0 baseline (@updates-runner, first row of
-  phase 0); everything else is planned, except where a section says
+  their merge script, and the development migrations as previews
+  (@updates-runner, first row of phase 0); everything else is planned, except where a section says
   "today". Phase 0 of the roadmap
   (@updates-roadmap) must be part of release 1.0.0, because a downgrade can
   only return to releases that already contain the mechanism.
@@ -26,7 +26,7 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decisio
 #table(
   columns: (auto, 1fr),
   [Topic], [State],
-  [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The baseline `migrations/1.0.0.sql` replaced the development migrations `0001`–`0010`; databases that applied them are recognised once. No snapshot yet.],
+  [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet. No snapshot yet.],
   [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
   [Version], [0.1.0 for all crates; `musicus-server --version` prints it. No endpoint, nothing in the user interface; the title pages of the user guide and of this document carry a hand-written "0.1".],
   [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after applying pending updates. Restoring is a manual file copy.],
@@ -34,8 +34,10 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decisio
 )
 
 The development migrations were irrelevant for the plan (there are no
-installations with real data) and have been collapsed into one baseline
-for 1.0.0; every guarantee below starts there.
+installations with real data). They are now the previews 0001–0010; the
+release of 1.0.0 merges them into its update `1.0.0.sql`, which the
+maintainer simplifies by hand to the final schema at that release
+(`RELEASING.md`). Every guarantee below starts with 1.0.0.
 
 == Releases and versions
 
@@ -175,7 +177,8 @@ a-update-runner in `docs/agents/decisions.md`).
   [Previews], [A release update whose listed previews all ran is recorded without running; if only some ran, the program reports an unclear development database and stops.],
   [Execution], [Rebuilds, then additive parts, then removals. Each part runs with its record in one transaction, foreign keys off around it and `foreign_key_check` before the commit (SQLite's table-rebuild procedure). Nothing is written before the refusal checks; a refused start leaves the database file byte-identical.],
   [Refusal], [For example: "This data was last used by Musicus 1.5.0. Musicus 1.1.0 can no longer use it; start Musicus 1.2.0 or newer." printed as the last line, exit code 1 (R-OPS-015).],
-  [Baseline], [`1.0.0.sql` gives exactly the schema of the development migrations 0001–0010 (checked by a test). A database with exactly those ten sqlx migrations and no marker is recorded once as having 1.0.0; the sqlx table is kept.],
+  [Development migrations], [The sqlx migrations 0001–0010 are the previews `0001-init` to `0010-german-key-spellings`, text unchanged inside `-- @additive` (0009 without its own transaction statements; the runner turns foreign keys off). Destructive steps in them are acceptable before 1.0: development databases have no downgrade guarantee. They give exactly the schema of the sqlx migrations (checked by a test). A database with sqlx migrations 1 to k applied and no marker is recorded once as having the previews 0001 to k; the remaining previews run; the sqlx table is kept.],
+  [Merge simplification], [The release script first appends the previews in order: the reference. Then it applies safe rules to the additive part: `ADD COLUMN` and `RENAME COLUMN` folded into a `CREATE TABLE` of the same cycle, and tables, indexes, triggers, views and columns that were created and dropped again removed. A rule fires only if every statement between that mentions the object is another `CREATE TABLE` or `CREATE INDEX`; other SQL stays as written. The result is kept only if it gives the same schema (columns, constraints, indexes, triggers, views) and the same rows as the appended version, on an empty database with the earlier release updates and, with `--fixture`, on a copy of a database of the previous release; otherwise the appended version is written. There is no special path for 1.0: its update is simplified by hand at the release and checked with `--compare`.],
 )
 
 Rule for update authors: while a removal is pending, the release that
@@ -199,7 +202,7 @@ answers every request with HTTP 503 `server_starting` (with
 reports `ok` only then.
 
 + Open the database without changing it and read the marker. An empty data
-  directory gets the 1.0 baseline and all updates in one go (removals as
+  directory gets all updates in one go (removals as
   the window allows), with no snapshot.
 + A release build with preview updates refuses to start (R-OPS-024).
 + If the own version is older than `oldest_allowed`: stop with a message
@@ -279,8 +282,10 @@ one update each. Implemented (R-OPS-023, R-OPS-024; details in
 + The release script `scripts/release-migrations.py <version>` merges all
   previews into `migrations/<version>.sql`, writes the list of contained
   previews into its header (`-- @previews:`), deletes the preview files
-  and adds the release line to `migrations/releases.txt`. Before the first
-  release it appends to the unreleased baseline `1.0.0.sql`.
+  and adds the release line to `migrations/releases.txt`. It simplifies
+  the merged update where that is provably safe (@updates-runner). For
+  1.0.0 only, the maintainer then simplifies the update by hand to the
+  final schema and checks it against the appended version.
 + A database that has applied all listed previews marks the release update
   as applied without running it. One that applied only some of them is a
   development database in an unclear state: the program says so and the
@@ -300,7 +305,7 @@ one update each. Implemented (R-OPS-023, R-OPS-024; details in
   runner (a few hundred lines) also carries the marker and the
   additive/removal split. It must ship in 1.0.0; the developer databases
   with `0001`–`0010` applied are recognised once and marked as having the
-  1.0 baseline (done).
+  previews 0001–0010 (done).
 ]
 
 == Checks in continuous integration <updates-ci>
@@ -444,7 +449,7 @@ change with the user's consent.
 #table(
   columns: (auto, 1fr, auto),
   [Phase], [Content], [Effort],
-  [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script and the 1.0 baseline replacing `0001`–`0010` (done, @updates-runner)], [L],
+  [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script with verified simplification; the development migrations `0001`–`0010` as previews (done, @updates-runner; the 1.0.0 update is simplified by hand at the release)], [L],
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
   [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
