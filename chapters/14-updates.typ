@@ -5,8 +5,9 @@
 #note[
   *This chapter is mostly a plan.* Implemented are the own update runner
   with the version marker, the downgrade window, the preview updates with
-  their merge script, and the development migrations as previews
-  (@updates-runner, first row of phase 0); everything else is planned, except where a section says
+  their merge script, the development migrations as previews
+  (@updates-runner, first row of phase 0), and the database check with the
+  schema snapshot and the `db-change` notice (@updates-ci); everything else is planned, except where a section says
   "today". Phase 0 of the roadmap
   (@updates-roadmap) must be part of release 1.0.0, because a downgrade can
   only return to releases that already contain the mechanism.
@@ -339,8 +340,10 @@ one update each. Implemented (R-OPS-023, R-OPS-024; details in
 
 == Checks in continuous integration <updates-ci>
 
-The rules above are enforced by three checks, built together with phase 0
-(the new runner and the preview folder), not earlier.
+The rules above are enforced by three checks. The database check and the
+`db-change` notice are implemented (workflow `Database`,
+`.github/workflows/database.yml`, jobs `db-check` and `db-change`); the
+release check comes with the release pipeline (@updates-release).
 
 #table(
   columns: (auto, 1fr, auto),
@@ -350,16 +353,42 @@ The rules above are enforced by three checks, built together with phase 0
   [Release check (R-OPS-040)], [On `release/<version>`: a patch version with any preview or a database update for this version; a minor or major version whose merged update `migrations/<version>.sql` does not list exactly the removed previews, or with previews left.], [blocking],
 )
 
-*Schema snapshot.* A script (for example `scripts/db-schema.sh`) applies
-all updates to an empty database and writes the resulting structure to a
-checked-in file (for example `crates/musicus-server/schema.sql`). CI
-regenerates it and compares. The diff also shows every schema change in
+*Schema snapshot.* `scripts/db-schema.sh` creates an empty database with
+the program's own update runner, exactly as Musicus does at its first
+start, and writes its structure to `crates/musicus-server/schema.sql`:
+every table, virtual table, index, trigger and view as one block, sorted by
+table, kind and name, with the comments of the stored SQL removed and one
+column or constraint per line. Left out are the runner's marker tables,
+SQLite's internal tables and the shadow tables of the search indexes. A
+developer who adds a preview runs the script and commits the file with it;
+`cargo test` and the job `db-check` (`scripts/db-schema.sh --check`) fail
+while it is out of date. The diff also shows every schema change in
 review. Code that expects a column no update creates is caught by the
 `test` job.
 
+*Rules of the database check* (`scripts/check-db-changes.py`, comparing the
+pull request with its base branch): a file added under `migrations/`
+outside `preview/` (also `releases.txt`, which only the release script
+writes) fails, as does a preview not named `NNNN-<topic>.sql`; a file of
+`migrations/` that is on the base branch must not be modified, renamed or
+deleted; `schema.sql` must not change without a new preview (except in a
+pull request that changes the snapshot's generator). In addition, a new
+preview's number must be higher than every preview on the base branch,
+so that development databases apply previews in the order they were
+merged: a branch that lost the race renumbers its preview. In the merge
+queue the pull requests of a group are checked together.
+
+*The `db-change` notice* labels the pull request `db-change` (the label is
+created if missing) and writes one comment, kept up to date on later pushes
+and removed together with the label when the pull request no longer adds a
+preview. It never fails. Pull requests from forks only get the note in the
+job summary, because their token cannot write.
+
 *Release pull requests* are recognised by the branch name
-`release/<version>`. Only they may delete previews and add the merged
-update.
+`release/<version>` (for example `release/1.3.0`). Only they may delete
+previews and add the merged update; the database check skips its rules for
+them (the release check covers them) but still compares the schema
+snapshot, which the merge must leave unchanged.
 
 *Limitation.* No check sees new kinds of values written into existing
 columns: a new role, a new system layout region kind, a new ink format
@@ -516,7 +545,7 @@ change with the user's consent.
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
   [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
-  [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
+  [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`) and `db-change` notice (done); release check on `release/<version>` branches (@updates-ci)], [M],
   [0 (in 1.0)], [Done: fallback values for stored enums (@updates-fallbacks); release checklist line "patch: no new stored values"; Windows folder sync fix (findings 1 and 6)], [S],
   [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS; program archives with `SHA256SUMS`; web client inside the program; OS data folder; user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],
   [2], [Fixtures and the upgrade/downgrade test matrix (meaningful from the second release)], [M],
