@@ -381,7 +381,7 @@ the introduction.
    needs one index rebuild.],
 )
 
-== Updates in two parts, with a downgrade window (planned) <d-update-model>
+== Updates in two parts, with a downgrade window (partly implemented) <d-update-model>
 
 #decision(
   [Volunteers update Musicus by replacing the image or the program
@@ -407,7 +407,9 @@ the introduction.
    snapshot first and restores it on failure. Patch releases have no
    database changes. A small own update runner replaces `sqlx::migrate!`;
    it also merges the preview updates of development into one update per
-   release. Not implemented yet: see @updates.],
+   release. The runner, the window and the preview merge are implemented;
+   snapshots, the start-up answers and the CI checks are not yet (see
+   @updates).],
   [Users can go back by starting the older image, which is the only step a
    volunteer can be expected to take. Keeping old structures until the
    window has passed costs a little disk space and the discipline of

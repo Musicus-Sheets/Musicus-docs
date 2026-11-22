@@ -3,9 +3,11 @@
 = Data model <data>
 
 All structured data lives in one SQLite file, `musicus.sqlite`, in the data
-directory. The schema is created by the migration
-`crates/musicus-server/migrations/0001_init.sql`; later changes are added as
-new numbered migration files and applied automatically at start-up. Times
+directory. The schema is created by the release update 1.0.0, the baseline
+`crates/musicus-server/migrations/1.0.0.sql`; later changes are added as
+preview updates and merged into one update per release, applied
+automatically at start-up (@updates). The baseline replaced the
+development migrations 0001–0010, whose numbers still appear below. Times
 are stored as Unix seconds, concert dates as `YYYY-MM-DD` text.
 
 == Entities and relations

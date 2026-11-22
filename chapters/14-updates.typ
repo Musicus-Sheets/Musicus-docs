@@ -1,10 +1,13 @@
 #import "../template.typ": *
 
-= Updates, downgrades and platforms (plan) <updates>
+= Updates, downgrades and platforms <updates>
 
 #note[
-  *This chapter is a plan.* Nothing described here is implemented yet,
-  except where a section says "today". Phase 0 of the roadmap
+  *This chapter is mostly a plan.* Implemented are the own update runner
+  with the version marker, the downgrade window, the preview updates with
+  their merge script and the 1.0 baseline (@updates-runner, first row of
+  phase 0); everything else is planned, except where a section says
+  "today". Phase 0 of the roadmap
   (@updates-roadmap) must be part of release 1.0.0, because a downgrade can
   only return to releases that already contain the mechanism.
 ]
@@ -18,21 +21,21 @@ an older release by simply starting it. Musicus runs with Docker Compose
 F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decision
 @d-update-model.
 
-== Today (version 0.1)
+== Today (version 0.1, before the first release)
 
 #table(
   columns: (auto, 1fr),
   [Topic], [State],
-  [Database updates], [Ten forward-only migrations (`0001`–`0010`) applied by `sqlx::migrate!` inside `Db::open`, that is at every start of every command, including `backup`. An older program refuses a database with migrations it does not know.],
+  [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The baseline `migrations/1.0.0.sql` replaced the development migrations `0001`–`0010`; databases that applied them are recognised once. No snapshot yet.],
   [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
   [Version], [0.1.0 for all crates; `musicus-server --version` prints it. No endpoint, nothing in the user interface; the title pages of the user guide and of this document carry a hand-written "0.1".],
-  [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after migrating. Restoring is a manual file copy.],
+  [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after applying pending updates. Restoring is a manual file copy.],
   [Tests], [CI (`rust.yml`) on Linux x86_64 only.],
 )
 
-The existing migrations are irrelevant for the plan: there are no
-installations with real data. At the first release they are collapsed into
-one baseline for 1.0.0, and every guarantee below starts there.
+The development migrations were irrelevant for the plan (there are no
+installations with real data) and have been collapsed into one baseline
+for 1.0.0; every guarantee below starts there.
 
 == Releases and versions
 
@@ -142,22 +145,55 @@ Rules for whoever writes a database update:
 
 == Version marker <updates-marker>
 
-A small set of tables (proposed names) replaces `_sqlx_migrations`:
+A small set of tables replaces `_sqlx_migrations` (implemented; marker
+format 1, later formats only add columns and keys, so every release from
+1.0 on can read them):
 
 #table(
   columns: (auto, 1fr, auto),
   [Table / key], [Meaning], [Written],
   [`musicus_meta.last_version`], [The release that last started successfully.], [every start],
   [`musicus_meta.oldest_allowed`], [The oldest release allowed to start; the check an older release makes before anything else.], [when a removal runs],
-  [`musicus_meta.marker_format`], [Version of these tables, so that every release from 1.0 on can read them.], [baseline],
-  [`musicus_updates`], [One row per applied update: name, release, kind (`release` or `preview`), time of the additive part, time of the removal part (empty while pending), the previews it contains.], [when a part runs],
+  [`musicus_meta.marker_format`], [Version of these tables, so that every release from 1.0 on can read them.], [first start],
+  [`musicus_meta.last_updates`], [The names of the updates (and merged previews) the program that last started knew; an update missing from it needs a rebuild.], [every start],
+  [`musicus_updates`], [One row per applied update: name, release, kind (`release` or `preview`), time of the additive part, of the last rebuild and of the removal part (empty while pending or when there is none), the previews it contains, the program that applied it.], [when a part runs],
   [`musicus_upgrades`], [History: from release, to release, time. Source of rule (b) of the window.], [every upgrade and downgrade],
 )
+
+== The update runner <updates-runner>
+
+Implemented in `crates/musicus-server/src/updates/` (decision record
+a-update-runner in `docs/agents/decisions.md`).
+
+#table(
+  columns: (auto, 1fr),
+  [Topic], [Design],
+  [Update files], [One SQL file per update. Header comments, optionally `-- @previews: 0001-a 0002-b` (merged release updates only), then the sections `-- @additive` (required), `-- @rebuild` and `-- @removal`, each at most once and in this order. Any other line starting with `-- @` is an error, so a typo cannot move a removal into the additive part. Release updates are named after their release (`1.3.0.sql`); a patch version is refused (R-OPS-018). `build.rs` embeds all files.],
+  [Release order], [`migrations/releases.txt` lists the released lines (`1.0`, `1.1`, …) in release order and is compiled into each program, so a newer program knows every earlier line. It is needed only to count "the three previous lines"; versions are compared by number, which equals release order because there are no back-ports. A line not listed yet is the development line after the last one. An older program decides only by comparing its line with `oldest_allowed`; it never needs to know newer lines.],
+  [Window], [Oldest line kept = the first of the three lines before the program's line in `releases.txt` (or the program's own line), lowered by every release the installation was upgraded from less than three calendar months ago (UTC), including the upgrade the current start performs. A removal of a release update is due when that line is at least the update's release; it runs only in the newest program that ever ran on the database (no newer version recorded, no unknown update applied) and raises `oldest_allowed` to the update's release.],
+  [Rebuild], [An update whose removal is pending is rebuilt when the program that last started did not know it (`last_updates`); this also covers switching branches, where all programs share one version number.],
+  [Previews], [A release update whose listed previews all ran is recorded without running; if only some ran, the program reports an unclear development database and stops.],
+  [Execution], [Rebuilds, then additive parts, then removals. Each part runs with its record in one transaction, foreign keys off around it and `foreign_key_check` before the commit (SQLite's table-rebuild procedure). Nothing is written before the refusal checks; a refused start leaves the database file byte-identical.],
+  [Refusal], [For example: "This data was last used by Musicus 1.5.0. Musicus 1.1.0 can no longer use it; start Musicus 1.2.0 or newer." printed as the last line, exit code 1 (R-OPS-015).],
+  [Baseline], [`1.0.0.sql` gives exactly the schema of the development migrations 0001–0010 (checked by a test). A database with exactly those ten sqlx migrations and no marker is recorded once as having 1.0.0; the sqlx table is kept.],
+)
+
+Rule for update authors: while a removal is pending, the release that
+brought the update and every later one write old and new structures, and
+must tolerate the old ones being gone, because running the removal lets
+that release start again.
+
+Limits: derived data rebuilt after another program ran is only the part
+search index (system layouts are not re-checked); a due removal runs only
+at a start; a stored version that cannot be read blocks removals; the
+program version stays 0.1.0 until the first release sets it.
 
 == Start-up sequence
 
 Every command that uses the database follows the same order; `backup`
-stops after step 1 (R-OPS-021). `serve` first opens the listener and
+stops after step 1 (R-OPS-021). Implemented today: steps 1 to 4, 6 and 8
+without the snapshot and its restore, without the early listener, and with
+`backup` still running all steps. `serve` first opens the listener and
 answers every request with HTTP 503 `server_starting` (with
 `Retry-After`) until the last step is done (R-OPS-045); `/api/health`
 reports `ok` only then.
@@ -230,23 +266,29 @@ may need a longer `start-period`.
 == Database updates during development <updates-preview>
 
 Developers keep their local demo databases across branches; releases ship
-one update each. Proposed workflow (details are design to be confirmed
-during implementation, R-OPS-023):
+one update each. Implemented (R-OPS-023, R-OPS-024; details in
+@updates-runner):
 
 + A branch that changes the database adds a *preview update*
   `migrations/preview/NNNN-<topic>.sql`, with an additive and a removal
-  section. Development builds apply previews like release updates.
+  section. Development builds apply previews like release updates, but
+  never their removal sections: another branch's program may still use
+  the old structures. The removal runs with the merged release update.
 + A preview that has been merged is never edited again; a correction is a
   new preview.
-+ The release script merges all previews into `migrations/<version>.sql`,
-  writes the list of contained previews into its header and deletes the
-  preview files.
++ The release script `scripts/release-migrations.py <version>` merges all
+  previews into `migrations/<version>.sql`, writes the list of contained
+  previews into its header (`-- @previews:`), deletes the preview files
+  and adds the release line to `migrations/releases.txt`. Before the first
+  release it appends to the unreleased baseline `1.0.0.sql`.
 + A database that has applied all listed previews marks the release update
   as applied without running it. One that applied only some of them is a
   development database in an unclear state: the program says so and the
   developer starts from a fresh demo database.
-+ Release builds refuse to start when preview files are present
-  (R-OPS-024); the release workflow fails before publishing.
++ Release builds (built with `MUSICUS_RELEASE_BUILD=1`) refuse to start
+  when preview files are present (R-OPS-024); every other build, also a
+  local Docker image, is a development build. The release workflow that
+  fails before publishing is still planned.
 + The merge happens in a release pull request from a branch
   `release/<version>`; only such a pull request may delete previews and
   add the merged update (@updates-ci).
@@ -256,9 +298,9 @@ during implementation, R-OPS-023):
   know and cannot merge files, so previews could not be combined into one
   release update without breaking every development database. A small own
   runner (a few hundred lines) also carries the marker and the
-  additive/removal split. It must ship in 1.0.0; the developer databases of
-  today (`0001`–`0010` applied) are recognised once and marked as having
-  the 1.0 baseline.
+  additive/removal split. It must ship in 1.0.0; the developer databases
+  with `0001`–`0010` applied are recognised once and marked as having the
+  1.0 baseline (done).
 ]
 
 == Checks in continuous integration <updates-ci>
@@ -402,7 +444,7 @@ change with the user's consent.
 #table(
   columns: (auto, 1fr, auto),
   [Phase], [Content], [Effort],
-  [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script and the 1.0 baseline replacing `0001`–`0010`], [L],
+  [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script and the 1.0 baseline replacing `0001`–`0010` (done, @updates-runner)], [L],
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
   [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
