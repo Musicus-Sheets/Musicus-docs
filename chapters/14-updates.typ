@@ -28,7 +28,7 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decisio
   [Topic], [State],
   [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet. No snapshot yet.],
   [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
-  [Version], [0.1.0 for all crates; `musicus-server --version` prints it. No endpoint, nothing in the user interface; the title pages of the user guide and of this document carry a hand-written "0.1".],
+  [Version], [0.1.0, written once as the workspace `version` of the root `Cargo.toml` (all crates inherit it). Implemented (phase 0): `musicus-server --version`, public `GET /api/version` and the "About Musicus" view print it; the title pages of the user guide and of this document take it from their build (`build.sh` → `typst --input version=…`), the guide site passes each release's version.],
   [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after applying pending updates. Restoring is a manual file copy.],
   [Tests], [CI (`rust.yml`) on Linux x86_64 only.],
 )
@@ -48,7 +48,7 @@ maintainer simplifies by hand to the final schema at that release
   [No back-ports], [Old minor releases get no new patches; a fix comes with the next release. The rhythm of releases is irregular.],
   [How an update is installed], [Docker Compose: `docker compose pull && docker compose up -d` (R-OPS-010). Plain program: stop, replace the program file, start.],
   [No update check], [Musicus never asks the internet for new releases (R-OPS-025). Administrators learn about releases from the release page and the user guide site.],
-  [Version visible], [`GET /api/version` without login and an "About" view for everyone (R-OPS-033, R-OPS-034); the version on the title pages of the user guide and of this document and on every page of the guide site (R-OPS-035); a git tag per release in the requirements repository (R-OPS-036).],
+  [Version visible], [`GET /api/version` without login and an "About" view for everyone (R-OPS-033, R-OPS-034); the version on the title pages of the user guide and of this document and on every page of the guide site (R-OPS-035); a git tag per release in the requirements repository (R-OPS-036). The one source of the number is the workspace `version` in `Cargo.toml`; a release raises it and tags `vX.Y.Z` on that commit.],
 )
 
 == The downgrade window <updates-window>
@@ -451,7 +451,7 @@ change with the user's consent.
   [Phase], [Content], [Effort],
   [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script with verified simplification; the development migrations `0001`–`0010` as previews (done, @updates-runner; the 1.0.0 update is simplified by hand at the release)], [L],
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
-  [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
+  [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
   [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],

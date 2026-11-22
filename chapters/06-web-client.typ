@@ -73,6 +73,12 @@ redirects to `/login` when the session check found no user. Its navigation
 shows Library, Programmes and Instruments to everyone, Groups to librarians
 and admins, and Users to admins.
 
+`/about` ("About Musicus", `pages::about`) renders outside `Shell`, so it
+works with and without a login; the login page and the end of the account
+page link to it. It shows the version from `GET /api/version` (fetched by
+`api::version`, which a later update notice can compare with the client's
+own `musicus_api::VERSION`), the licence and the source link (R-OPS-034).
+
 There is no separate management area (@d-inline-management): the library,
 programme and instrument pages ask `ui::can_manage()` and add their
 controls ("Add piece", "Edit" on pieces and parts, "New programme", "Edit"

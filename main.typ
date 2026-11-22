@@ -1,9 +1,15 @@
 #import "template.typ": *
 
+// Release version on the title page: `typst compile --input version=1.2.0`
+// (build.sh passes it); "dev" when built without one.
+#let musicus-version = sys.inputs.at("version", default: "dev")
+
 #show: project.with(
   title: "Musicus",
   subtitle: "Technical documentation: architecture and components",
-  version: "Describes Musicus 0.1 (first implementation)",
+  version: if musicus-version == "dev" { "Describes a development version of Musicus" } else {
+    "Describes Musicus " + musicus-version
+  },
 )
 
 #include "chapters/01-introduction.typ"
