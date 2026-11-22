@@ -125,9 +125,9 @@ Rules for whoever writes a database update:
   oldest release allowed to start to that release.
 - Values that older releases do not know (a new role, a new region kind, a
   new ink format) are new-only data unless the older releases already
-  tolerate unknown values. Error codes already have such a fallback
-  (`unknown`); the other stored enums (`Role`, `RegionKind`, …) get one in
-  phase 0.
+  tolerate unknown values. Since phase 0 every stored enum and format has
+  such a fallback (@updates-fallbacks); a new value is allowed only where
+  the fallback covers it.
 - *Fail closed* (R-OPS-017). Anything an older release cannot fully
   understand must be invisible to it. A restriction introduced by a newer
   release (for example a grant with an expiry date) is stored so that the
@@ -144,6 +144,31 @@ Rules for whoever writes a database update:
 - All release updates stay in the program for ever, because any older
   release may be upgraded (R-OPS-011). The removal statements therefore live
   in the update files; the database only records which parts have run.
+
+== Fallbacks for unknown stored values <updates-fallbacks>
+
+An older release reads what a newer one wrote. Each value that a newer
+release could extend is read with a fallback that fails closed: never more
+access, never a wrong view, no server error, and nothing read through a
+fallback is written back (R-OPS-041, R-OPS-017).
+
+#table(
+  columns: (auto, 1fr),
+  [Stored value], [An unknown value in an older release],
+  [Role (`users.role`)], [The account cannot log in (login, sessions and invite links are refused). It is not treated as a member, because a new role may have fewer rights. Admins see it as "Unknown role"; an unknown role is never stored, other changes keep it. If every admin had one, `musicus-server create-admin` creates a new admin.],
+  [Band kind in system layouts and corrections], [The page is shown whole. The system editor shows the band as "Unknown (newer version)" and saves the page only after every band has a known kind; the server refuses an unknown kind.],
+  [Layout state, layout or correction data it cannot read], [Treated as a failed detection (whole pages), or that page shown whole. The background detection never redoes a layout of a newer algorithm.],
+  [Ink format version, new kinds of marks], [The reader shows the page without its markings, says why, and does not let anyone draw on that page, so the stored markings stay as they are. The server never decodes stored pages. A new kind of mark needs a new format version.],
+  [Import file and item states, proposals and changes it cannot read], [The file, piece or part is left out of the review, the proposals and the import, and its row is never changed.],
+  [Error codes stored in import problems], [Shown as an unknown error (`unknown`).],
+  [Reader view settings, import language], [The default (no effect on access).],
+)
+
+The full inventory, with where each value is read, is kept in the agent
+documentation (`docs/agents/data-model.md`, "Stored values"). Tests write
+such values directly into the database and check that the requests above
+behave as described. Not yet covered: data of real releases (the test
+matrix, phase 2).
 
 == Version marker <updates-marker>
 
@@ -337,8 +362,9 @@ columns: a new role, a new system layout region kind, a new ink format
 version, a new error code stored in import problems. A patch must not
 write such values either (R-OPS-041). This is covered by the test data of
 every release checked against older releases (upgrade/downgrade matrix),
-by fallbacks for unknown values on every stored enum (like `ErrorCode`,
-phase 0), and by the release checklist line "patch: no new stored values".
+by fallbacks for unknown values on every stored enum (@updates-fallbacks),
+and by the release checklist line "patch: no new stored values (new enum
+variants, format versions) — R-OPS-041" (`RELEASING.md`, step 7).
 
 *Which check runs where* (R-OPS-032). Only what can differ between
 platforms runs on every supported system; everything else runs once, on
@@ -393,7 +419,7 @@ same steps to do by hand.
   [Raspberry Pi 3, 4, 5 or newer, 64-bit OS], [Docker Compose], [arm64], [Buildable (`docker buildx --platform linux/arm64`), never tested → published arm64 image; smoke test on a Pi (R-OPS-027).],
   [Windows, macOS with Docker Desktop], [Docker Compose], [amd64, arm64], [Uses the Linux images → covered by multi-architecture images.],
   [Linux], [plain program], [x86_64, arm64], [Works (needs `--web-dir`) → program download (R-OPS-029).],
-  [Windows], [plain program], [x86_64], [Blocked: uploads fail (finding 1) → fix, CI, download.],
+  [Windows], [plain program], [x86_64], [Upload blocker fixed (finding 1), compiles, never run → CI, download.],
   [macOS (Apple silicon)], [plain program], [arm64], [Never built → CI, download.],
   [macOS (Intel), _should_], [plain program], [x86_64], [Never built → built and smoke-tested in CI, not a release blocker (R-OPS-042).],
 )
@@ -425,12 +451,12 @@ Program (about 99 USD a year) and notarisation.
 #table(
   columns: (auto, 1fr, auto),
   [\#], [Finding], [Action],
-  [1], [`blobs.rs` (`sync_dir`) syncs the blob folder after a rename with `File::open(dir)?.sync_all()`. Folders cannot be opened like that on Windows, so every upload would fail.], [sync the folder on Unix only],
+  [1], [`blobs.rs` (`sync_dir`) synced the blob folder after a rename with `File::open(dir)?.sync_all()`. Folders cannot be opened like that on Windows, so every upload would fail.], [done: the folder is synced on Unix only],
   [2], [Graceful shutdown listens for SIGTERM only under `cfg(unix)`; Ctrl+C works everywhere. Fine as it is.], [none],
   [3], [The plain program needs the web client in a separate folder (`--web-dir`).], [embed it (R-OPS-030)],
   [4], [The default data directory is `data`, relative to the working directory, which depends on how the program is started.], [usual folder per OS (R-OPS-031)],
   [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [platform-dependent checks on all systems, multi-arch images (R-OPS-032)],
-  [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [treat "target exists" after a failed rename as success; test on Windows],
+  [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [done: "target exists" after a failed rename counts as success; still to test on Windows],
   [7], [The backup target path reaches SQLite through `to_string_lossy`; a path that is not valid UTF-8 would be changed.], [refuse such paths with a clear message],
   [8], [A Pi 3 has 1 GB of memory and is slow to compile Rust; performance targets were measured on a laptop, not on any Pi. Snapshots take space on the SD card.], [build elsewhere; measure on a Pi 3],
   [9], [Building on Windows needs a C compiler for `ring` (TLS) and SQLite (assumption, check in CI).], [CI on Windows],
@@ -487,7 +513,7 @@ change with the user's consent.
   [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
-  [0 (in 1.0)], [Fallback values for stored enums; release checklist line "patch: no new stored values"; Windows folder sync fix (finding 1)], [S],
+  [0 (in 1.0)], [Done: fallback values for stored enums (@updates-fallbacks); release checklist line "patch: no new stored values"; Windows folder sync fix (findings 1 and 6)], [S],
   [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS; program archives with `SHA256SUMS`; web client inside the program; OS data folder; user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],
   [2], [Fixtures and the upgrade/downgrade test matrix (meaningful from the second release)], [M],
   [3], [Storage modules, file store interface, PDF engine module, conformance suites (F-TECH-002)], [L],
