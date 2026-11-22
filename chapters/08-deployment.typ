@@ -121,7 +121,10 @@ The `Dockerfile` has three stages:
   must be built into the server binary. See @d-distroless.
 ]
 
-`compose.yaml` runs the image with one named volume. The optional profile
+`compose.yaml` runs the image with one named volume. It publishes the port
+on every interface over IPv4 and IPv6; `MUSICUS_BIND=127.0.0.1` restricts it
+to `127.0.0.1` and `[::1]` (two port lines built with `${MUSICUS_BIND:+…}`,
+which are identical, and counted once, when the variable is empty). The optional profile
 `https` adds Caddy (`deploy/Caddyfile`), which obtains and renews a Let's
 Encrypt certificate and forwards to the server; the server then trusts
 `X-Forwarded-For` (`MUSICUS_TRUST_PROXY`) and should only listen on
