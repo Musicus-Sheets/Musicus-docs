@@ -64,6 +64,12 @@ Notable details:
   that librarians and admins may read everything).
 - `CSRF_HEADER` (`x-musicus-csrf`) and `SESSION_COOKIE` (`musicus_session`)
   are constants here so server and client cannot disagree on the names.
+- `VERSION`, `LICENSE` and `SOURCE_URL` come from the workspace `version`,
+  `license` and `repository` of the root `Cargo.toml` (`env!`), the one
+  place where the release version is written. Server (`GET /api/version`,
+  `--version`) and web client are built from the same workspace, so they
+  carry the same number; `VersionInfo {version}` is the body of
+  `GET /api/version`.
 - `UpdateAnnotationSet::programme_id` is an `Option<Option<Id>>`: the field
   missing means "leave unchanged", JSON `null` means "unlink the programme".
   A custom deserializer (`double_option`) makes this distinction.

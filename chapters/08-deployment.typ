@@ -65,6 +65,8 @@ localhost.
 
 - *Health:* `GET /api/health` returns `ok` when the process answers and the
   database is readable. No login needed.
+- *Version:* `GET /api/version` (no login), `musicus-server --version`, or
+  "About Musicus" in the web client name the running release.
 - *Backup:* `musicus-server backup --to <file>` writes a consistent
   database copy while the server runs; then copy `blobs/`. The order matters:
   blobs referenced by the backup already exist, because files are only ever

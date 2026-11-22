@@ -11,7 +11,13 @@ This repository is included in the main repository as the git submodule
 
 ```sh
 ./build.sh          # → out/musicus-technical.pdf and out/musicus-technical.html
+./build.sh 1.2.0    # the same, with the release version 1.2.0 on the title page
 ```
+
+The title page names the Musicus version (`typst --input version=…`, read in
+`main.typ`): the first argument of `build.sh`, else `$MUSICUS_VERSION`, else the
+workspace version of the main repository's `Cargo.toml` when this is its
+submodule, else "dev" (a development version).
 
 The PDF is the main format (A4, for reading and printing); the HTML page is a
 self-contained second format with a navigation sidebar and dark mode. Both come

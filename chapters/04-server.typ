@@ -79,6 +79,9 @@ container image is configured. Four subcommands exist:
   [`healthcheck`], [Sends `GET /api/health` over a raw TCP connection and exits 0 or 1.],
 )
 
+`--version` prints `musicus-server <version>` with `musicus_api::VERSION`,
+the same number `GET /api/version` answers.
+
 `serve` turns the options into `Settings`, calls `open_state`, then either
 binds a plain TCP listener (Axum) or, with `--tls-cert`/`--tls-key`, a
 rustls listener (axum-server). Both stop gracefully on SIGTERM or Ctrl-C:
@@ -259,6 +262,11 @@ middleware:
   the single-page app.
 
 Unknown `/api` paths answer a JSON 404, not `index.html`.
+
+Two endpoints need no login: `GET /api/health` (liveness) and
+`GET /api/version`, which answers `{"version": "<release>"}` with
+`Cache-Control: no-store` (R-OPS-033). The version is public on purpose
+(user decision); it reveals only the number, no commit or build details.
 
 === Handler modules
 

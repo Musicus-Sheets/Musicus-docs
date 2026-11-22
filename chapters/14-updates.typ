@@ -18,7 +18,7 @@ one without data loss, and for a limited time an installation can go back to
 an older release by simply starting it. Musicus runs with Docker Compose
 (preferred) and as a plain program on Linux, Windows and macOS, including
 64-bit Raspberry Pi computers. Requirements: F-OPS-005, F-OPS-006, F-OPS-007,
-F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decision
+F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-049, R-TECH-004 to R-TECH-007; decision
 @d-update-model.
 
 == Today (version 0.1, before the first release)
@@ -28,7 +28,7 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-048, R-TECH-004 to R-TECH-007; decisio
   [Topic], [State],
   [Database updates], [The own update runner (@updates-runner) inside `Db::open`, that is at every start of every command, still including `backup`. The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet. No snapshot yet.],
   [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
-  [Version], [0.1.0 for all crates; `musicus-server --version` prints it. No endpoint, nothing in the user interface; the title pages of the user guide and of this document carry a hand-written "0.1".],
+  [Version], [0.1.0, written once as the workspace `version` of the root `Cargo.toml` (all crates inherit it). Implemented (phase 0): `musicus-server --version`, public `GET /api/version` and the "About Musicus" view print it; the title pages of the user guide and of this document take it from their build (`build.sh` → `typst --input version=…`), the guide site passes each release's version.],
   [Backup and restore], [`backup` writes a copy with `VACUUM INTO`, after applying pending updates. Restoring is a manual file copy.],
   [Tests], [CI (`rust.yml`) on Linux x86_64 only.],
 )
@@ -48,7 +48,7 @@ maintainer simplifies by hand to the final schema at that release
   [No back-ports], [Old minor releases get no new patches; a fix comes with the next release. The rhythm of releases is irregular.],
   [How an update is installed], [Docker Compose: `docker compose pull && docker compose up -d` (R-OPS-010). Plain program: stop, replace the program file, start.],
   [No update check], [Musicus never asks the internet for new releases (R-OPS-025). Administrators learn about releases from the release page and the user guide site.],
-  [Version visible], [`GET /api/version` without login and an "About" view for everyone (R-OPS-033, R-OPS-034); the version on the title pages of the user guide and of this document and on every page of the guide site (R-OPS-035); a git tag per release in the requirements repository (R-OPS-036).],
+  [Version visible], [`GET /api/version` without login and an "About" view for everyone (R-OPS-033, R-OPS-034); the version on the title pages of the user guide and of this document and on every page of the guide site (R-OPS-035); a git tag `vX.Y.Z` per release in the requirements repository and in both documentation repositories, created by hand after the release pipeline succeeded (R-OPS-036). The one source of the number is the workspace `version` in `Cargo.toml`; a release raises it and tags `vX.Y.Z` on that commit.],
 )
 
 == The downgrade window <updates-window>
@@ -292,8 +292,8 @@ one update each. Implemented (R-OPS-023, R-OPS-024; details in
   developer starts from a fresh demo database.
 + Release builds (built with `MUSICUS_RELEASE_BUILD=1`) refuse to start
   when preview files are present (R-OPS-024); every other build, also a
-  local Docker image, is a development build. The release workflow that
-  fails before publishing is still planned.
+  local Docker image, is a development build. The release pipeline that
+  fails before publishing (@updates-release) is still planned.
 + The merge happens in a release pull request from a branch
   `release/<version>`; only such a pull request may delete previews and
   add the merged update (@updates-ci).
@@ -352,6 +352,37 @@ Linux x86_64.
 
 The container image is built for linux/amd64 and linux/arm64 at least for
 every release (R-OPS-028).
+
+== Release pipeline (planned) <updates-release>
+
+A release is built, checked and published by one pipeline that publishes
+nothing unless everything succeeded (R-OPS-049, user decision).
+
+#table(
+  columns: (auto, 1fr),
+  [Run], [When and what],
+  [Dry run], [On the pull request from `release/<version>`: stage 1 completely, nothing is published.],
+  [Real run], [Starts automatically when a `release/<version>` pull request is merged into `main`: stage 1, then stage 2.],
+  [Stage 1 (temporary)], [Results are workflow artifacts that expire. The workspace version in `Cargo.toml` equals the version in the branch name; all tests, lints, documentation and requirements checks; the release check (R-OPS-040); program build and smoke test per platform (R-OPS-029, R-OPS-032); multi-arch images built, not pushed (R-OPS-028); user guide and technical documentation built and their title pages checked to show the release version (R-OPS-035); the complete guide website built, including the new release.],
+  [Stage 2 (publish)], [Only if stage 1 is entirely green, in this order, least reversible last: push the images with their version tags; create the tag `vX.Y.Z` in the main repository; create the GitHub release with the program archives and `SHA256SUMS`; deploy the guide website. Every step is idempotent (it skips what already exists), so a failed publish run is simply run again.],
+  [Failure], [Nothing is published, the artifacts are discarded; fix and run again.],
+  [By hand afterwards], [Tags `vX.Y.Z` in `docs/requirements`, `docs/technical` and `docs/user-guide` on the commits the release points to (R-OPS-036); no token for the documentation repositories in the pipeline.],
+)
+
+The website workflow of today (`user-guide-pages.yml`, started by a
+published release) becomes the last step of the pipeline; its manual test
+build stays. The warning of `build-guide-site.sh` when an older release's
+tag differs from its workspace version stays a warning; the blocking check
+is the one in stage 1. Until the pipeline exists, `RELEASING.md` lists the
+same steps to do by hand.
+
+#why[
+  Publishing is the only part that cannot be taken back: an image tag that
+  was pulled or a release that was announced stays out there. Building and
+  checking everything first, and publishing in the order from easiest to
+  hardest to undo, means a failure leaves either nothing or a state that a
+  re-run completes.
+]
 
 == Platforms <updates-platforms>
 
@@ -439,8 +470,9 @@ change with the user's consent.
 - *Failure:* an update that fails on purpose ends with the snapshot restored
   (R-OPS-020).
 - *Release check:* no database update in a patch release, no preview files,
-  merged update lists exactly the removed previews (@updates-ci), version on
-  the title pages, requirements tag present.
+  merged update lists exactly the removed previews (@updates-ci); workspace
+  version equals the branch name and the title pages show it (stage 1 of
+  @updates-release).
 - *Stored values:* data written by the newest patch of each minor is read by
   the first release of that minor (R-OPS-041).
 
@@ -451,8 +483,8 @@ change with the user's consent.
   [Phase], [Content], [Effort],
   [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script with verified simplification; the development migrations `0001`–`0010` as previews (done, @updates-runner; the 1.0.0 update is simplified by hand at the release)], [L],
   [0 (in 1.0)], [Snapshot before updates, automatic restore, `backup` without updating, `restore` command], [M],
-  [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version], [S],
-  [0 (in 1.0)], [Release workflow: multi-arch image with version tags, Compose file using it, requirements tag, release check], [M],
+  [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
+  [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
   [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`), `db-change` notice, release check on `release/<version>` branches (@updates-ci)], [M],
   [0 (in 1.0)], [Fallback values for stored enums; release checklist line "patch: no new stored values"; Windows folder sync fix (finding 1)], [S],
