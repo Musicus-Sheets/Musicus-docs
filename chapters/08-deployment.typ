@@ -80,6 +80,28 @@ the folder explicitly.
 Configuration is by command-line options or `MUSICUS_*` environment
 variables; the full list is in the repository README.
 
+== Listening address
+
+`MUSICUS_LISTEN` defaults to `[::]:8080`. The server binds this as one
+dual-stack socket (`IPV6_V6ONLY` switched off explicitly, since Windows and
+some BSDs default to IPv6 only), so it answers on `127.0.0.1` and `::1`
+alike; IPv4 clients appear as `::ffff:a.b.c.d` and are logged and rate
+limited by their IPv4 address. Where IPv6 is missing (kernel booted with
+`ipv6.disable=1`, some container setups), binding `[::]` fails and the server
+falls back to `0.0.0.0` with the same port and logs a warning. Any other
+address, `0.0.0.0` and `127.0.0.1` included, is bound exactly as given. The
+start-up log names the bound address and whether it serves both families.
+`musicus-server healthcheck` connects to `[::1]`, then `127.0.0.1`, for an
+unspecified listening address.
+
+#why[
+  A reverse proxy configured with `localhost` (nginx resolves it to both
+  `127.0.0.1` and `::1` and alternates) returned 502 for part of the requests
+  while the default was the IPv4-only `0.0.0.0`. The fallback is limited to
+  the default `[::]`: an explicitly chosen address that cannot be bound is an
+  error, not something to replace silently.
+]
+
 == Container image
 
 The `Dockerfile` has three stages:
@@ -99,11 +121,22 @@ The `Dockerfile` has three stages:
   must be built into the server binary. See @d-distroless.
 ]
 
-`compose.yaml` runs the image with one named volume. The optional profile
+`compose.yaml` runs the image with one named volume. It publishes the port
+on every address over IPv4 and IPv6; the switch `MUSICUS_LOCAL_ONLY=true`
+restricts it to `127.0.0.1` and `[::1]` (two port lines built with
+`${MUSICUS_LOCAL_ONLY:+…}`, which are identical, and counted once, when the
+variable is empty). Other addresses belong in the administrator's own
+`compose.override.yaml` with `ports: !override` (Compose 2.24 or newer;
+without it Compose merges the port lists); like `.env`, it is ignored by git
+and never overwritten by updates. The optional profile
 `https` adds Caddy (`deploy/Caddyfile`), which obtains and renews a Let's
 Encrypt certificate and forwards to the server; the server then trusts
 `X-Forwarded-For` (`MUSICUS_TRUST_PROXY`) and should only listen on
 localhost.
+An existing nginx works the same way: `deploy/nginx.conf.example`
+forwards to `127.0.0.1:8080`, raises `client_max_body_size` to the upload
+limit and sets `X-Forwarded-For` to the client address (the server takes the
+first entry of that header).
 
 #note[
   HTTPS is required in practice, not optional: browsers only keep the
