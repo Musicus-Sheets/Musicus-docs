@@ -122,9 +122,13 @@ The `Dockerfile` has three stages:
 ]
 
 `compose.yaml` runs the image with one named volume. It publishes the port
-on every interface over IPv4 and IPv6; `MUSICUS_BIND=127.0.0.1` restricts it
-to `127.0.0.1` and `[::1]` (two port lines built with `${MUSICUS_BIND:+…}`,
-which are identical, and counted once, when the variable is empty). The optional profile
+on every address over IPv4 and IPv6; the switch `MUSICUS_LOCAL_ONLY=true`
+restricts it to `127.0.0.1` and `[::1]` (two port lines built with
+`${MUSICUS_LOCAL_ONLY:+…}`, which are identical, and counted once, when the
+variable is empty). Other addresses belong in the administrator's own
+`compose.override.yaml` with `ports: !override` (Compose 2.24 or newer;
+without it Compose merges the port lists); like `.env`, it is ignored by git
+and never overwritten by updates. The optional profile
 `https` adds Caddy (`deploy/Caddyfile`), which obtains and renews a Let's
 Encrypt certificate and forwards to the server; the server then trusts
 `X-Forwarded-For` (`MUSICUS_TRUST_PROXY`) and should only listen on
