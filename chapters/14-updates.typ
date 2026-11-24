@@ -227,10 +227,11 @@ program version stays 0.1.0 until the first release sets it.
 
 Every command that writes the database follows the same order (`serve`,
 `create-admin`; `backup` and `restore` open the database read-only and run
-none of it, R-OPS-021). Implemented: steps 1 to 8 except the early listener;
-`serve` will first open the listener and answer every request with HTTP 503
-`server_starting` (with `Retry-After`) until the last step is done
-(R-OPS-045); `/api/health` reports `ok` only then.
+none of it, R-OPS-021). Implemented: `serve` first opens the listener and
+answers every API request with HTTP 503 `server_starting` (with
+`Retry-After`) until the last step is done (R-OPS-045); only `/api/version`,
+the event stream and the web client files answer normally meanwhile, and
+`/api/health` reports `ok` only then.
 
 + A release build with preview updates refuses to start (R-OPS-024).
 + If the note `update-failed.json` in the data directory names this very
@@ -262,7 +263,7 @@ none of it, R-OPS-021). Implemented: steps 1 to 8 except the early listener;
   `musicus_upgrades`; rebuild derived data if another release ran last;
   remove a note of a failed update of this or an older version (a newer or
   fixed program got past it); switch the router from `server_starting` to
-  normal service (planned).
+  normal service and send `ready` on the event streams.
 
 *Restart guard.* With a restart policy (Docker `restart: unless-stopped`)
 the failing program would start again and again. The note stops this: the
@@ -285,26 +286,44 @@ administrator wants the same program to try again.
 
 == Open clients during shutdown, start and update <updates-clients>
 
-Tablets stay open for hours; an update must neither lose a marking nor
-interrupt a musician (F-OPS-008).
+Tablets stay open for hours; an update must neither lose an annotation nor
+interrupt a musician (F-OPS-008). Implemented.
+
+The server tells open clients what it does over an event stream
+(Server-Sent Events, `GET /api/events`, one per tab): the state `starting`,
+`ready` or `shutting_down` with its version, first the current one, then
+each change. Proxies pass it unbuffered (`X-Accel-Buffering: no`, keep-alive
+comments every 15 s); the browser reconnects by itself. While the server is
+away, the client also asks `/api/health` every 3 s.
 
 #table(
   columns: (auto, 1fr, 1fr),
   [Situation], [Server], [Web client],
-  [Stop signal (R-OPS-043)], [Accepts no further changes; answers 503 `server_shutting_down` with `Retry-After`; finishes writes in progress, checkpoints and closes the database, exits.], [Banner "Server is shutting down"; actions that need the server are blocked (R-OPS-044).],
-  [Unreachable (R-OPS-044)], [—], [Banner "Server not reachable"; what is loaded (an open part) stays readable; drawing continues.],
-  [Starting (R-OPS-045, R-OPS-046)], [Listens at once; 503 `server_starting` until snapshot, updates and checks are done.], [Banner "Server is starting"; polls a status endpoint and removes the banner by itself when the server is ready.],
-  [Unsaved markings (R-OPS-047)], [—], [Kept in the open tab's memory, saved automatically when the server is back (usual merge); nothing stored on the device (R-SEC-001); closing the tab with unsaved markings while the server is away warns (`beforeunload`).],
-  [New version (R-OPS-048)], [`GET /api/version` returns the new version.], [Notice "Musicus has been updated"; saves what is pending, reloads automatically at a safe moment, never while reading or drawing.],
+  [Stop signal (R-OPS-043)], [Sends `shutting_down` at once; keeps serving for a grace (`MUSICUS_SHUTDOWN_GRACE_SECS`, default 3 s, at most 30 s; only if a client listens); then answers new requests with 503 `server_shutting_down` and `Retry-After`, waits up to 5 s for running requests, checkpoints and closes the database, exits.], [Banner "Server is shutting down". *First* every action that needs the server is blocked, drawing included; *then* every annotation page not sent yet is sent at once (R-OPS-044). A failed send keeps the annotations in memory with a notice.],
+  [Unreachable (R-OPS-044)], [—], [Banner "Server not reachable"; what is loaded stays readable; drawing continues; other actions are tried and fail with this reason.],
+  [Starting (R-OPS-045, R-OPS-046)], [Listens at once; 503 `server_starting` until snapshot, updates and checks are done; health "starting" is unhealthy.], [Banner "Server is starting"; actions blocked as while shutting down; the banner goes by itself on `ready`.],
+  [Unsaved annotations (R-OPS-047)], [—], [Kept in the open tab's memory, sent automatically when the server is back (usual merge); nothing stored on the device (R-SEC-001); closing the tab with unsaved annotations while the server is away warns (`beforeunload`). Annotations the server refuses (e.g. it was updated meanwhile and reads them differently) stay in memory with the notice "These annotations couldn't be saved".],
+  [New version (R-OPS-048)], [`ready` (and `GET /api/version`) carries the new version.], [Notice "Musicus has been updated" with "Reload now"; reloads by itself only when no part is open in the reader, nothing is pending or running and nothing was typed since the last save, so never while reading or drawing.],
 )
 
 Consequences: the start-up sequence opens the listener before the
-database updates; two new error codes `server_shutting_down` and
-`server_starting` join `ErrorCode` (with English messages and catalogue
-texts); the graceful shutdown of today (R-OPS-008) keeps the listener open
-during the drain so clients get the dedicated answer. The Docker health
-check reports the container as starting meanwhile; long updates on a Pi
-may need a longer `start-period`.
+database updates; two error codes `server_shutting_down` and
+`server_starting` joined `ErrorCode` (with English messages and catalogue
+texts); the graceful shutdown (R-OPS-008) keeps the listener open during
+the drain so clients get the dedicated answer. The Docker health check
+reports the container as starting during `start-period` and unhealthy
+afterwards until a long update is done (Docker does not restart it for
+that); long updates on a Pi may need a longer `start-period`. The grace and
+the 5 s drain fit the stop timeout of `compose.yaml` (15 s).
+
+#why[
+  The order "block, then send" means nothing new can be queued after the
+  announcement, so the short grace is enough. A lost connection without an
+  announcement is usually the network: blocking drawing then would interrupt
+  a musician for nothing, so drawings wait in memory. The server never removes
+  an old ink decoder, so that annotations of an older open client stay
+  readable after an update; no conversion exists.
+]
 
 == Backup, restore and export <updates-backup>
 
@@ -580,7 +599,7 @@ change with the user's consent.
   [0 (in 1.0)], [Snapshot before updates, automatic restore with restart guard, `backup` without updating, `restore` command (done, @updates-start, @updates-backup)], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
   [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
-  [0 (in 1.0)], [Open clients: listener before updates with `server_starting`, shutdown drain with `server_shutting_down`, client banners, polling, unsaved markings kept and re-sent, close warning, version change with reload at a safe moment (F-OPS-008)], [M],
+  [0 (in 1.0)], [Open clients: event stream, listener before updates with `server_starting`, shutdown drain with grace and `server_shutting_down`, client banners, block-then-send, polling, unsaved annotations kept and re-sent, close warning, version change with reload at a safe moment (done, @updates-clients, F-OPS-008)], [M],
   [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`) and `db-change` notice (done); release check on `release/<version>` branches (@updates-ci)], [M],
   [0 (in 1.0)], [Done: fallback values for stored enums (@updates-fallbacks); release checklist line "patch: no new stored values"; Windows folder sync fix (findings 1 and 6); web client inside the program and OS data folder (findings 3 and 4, R-OPS-030, R-OPS-031; done early)], [S],
   [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS; program archives with `SHA256SUMS`; user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],

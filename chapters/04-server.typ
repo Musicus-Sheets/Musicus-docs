@@ -16,7 +16,7 @@ these units:
 #table(
   columns: (auto, auto, 1fr),
   [Layer], [Unit], [Purpose],
-  table.cell(rowspan: 2)[Entry], [`main`, `config`], [Command line (clap), process start-up, TLS, graceful shutdown.],
+  table.cell(rowspan: 2)[Entry], [`main`, `config`], [Command line (clap), process start-up, TLS, orderly shutdown (`lifecycle`).],
   [`lib`], [`open_state` (opens database and file store), `bootstrap_admin`.],
   table.cell(rowspan: 2)[HTTP], [`routes`], [Router, middleware, and one sub module per API area.],
   [`error`], [One error type for all handlers, turned into HTTP status + `ApiError` JSON; input validation helpers.],
@@ -84,11 +84,13 @@ container image is configured. Six subcommands exist:
 `--version` prints `musicus-server <version>` with `musicus_api::VERSION`,
 the same number `GET /api/version` answers.
 
-`serve` turns the options into `Settings`, calls `open_state`, then either
-binds a plain TCP listener (Axum) or, with `--tls-cert`/`--tls-key`, a
-rustls listener (axum-server). Both stop gracefully on SIGTERM or Ctrl-C:
-running requests may finish, which matters for annotation saves in flight
-when a container is stopped.
+`serve` turns the options into `Settings`, first binds a plain TCP listener
+(Axum) or, with `--tls-cert`/`--tls-key`, a rustls listener (axum-server),
+and answers `server_starting` while it calls `open_state` (snapshot,
+updates, checks). On SIGTERM or Ctrl-C it announces the stop to open
+clients, serves them for a short grace, refuses new work with
+`server_shutting_down`, lets running requests finish, closes the database
+and exits (see the chapter on updates, section on open clients).
 
 On a fresh database `bootstrap_admin` creates the user `admin` without a
 password and logs a one-time invite link. The administrator sets the
