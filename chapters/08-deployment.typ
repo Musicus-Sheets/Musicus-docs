@@ -128,7 +128,14 @@ restricts it to `127.0.0.1` and `[::1]` (two port lines built with
 variable is empty). Other addresses belong in the administrator's own
 `compose.override.yaml` with `ports: !override` (Compose 2.24 or newer;
 without it Compose merges the port lists); like `.env`, it is ignored by git
-and never overwritten by updates. The optional profile
+and never overwritten by updates. The same file can put the data into a
+host folder instead of the volume: `user:` set to the administrator's own
+user and group number and a bind mount `./data` → `/data` with
+`create_host_path: false` (a missing folder stops the start instead of
+Docker creating it for `root`, where the unprivileged server could not
+write). Both cases are in `compose.override.example.yaml`, commented out.
+Choices that must not change later (who owns the data, where it lives) are
+deliberately not `.env` variables (@a-compose-override). The optional profile
 `https` adds Caddy (`deploy/Caddyfile`), which obtains and renews a Let's
 Encrypt certificate and forwards to the server; the server then trusts
 `X-Forwarded-For` (`MUSICUS_TRUST_PROXY`) and should only listen on
