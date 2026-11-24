@@ -9,8 +9,9 @@
   (@updates-runner, first row of phase 0), the snapshot before updates
   with automatic restore, `backup` without updating and the `restore`
   command (@updates-start, @updates-backup, second row), and the database
-  check with the schema snapshot and the `db-change` notice (@updates-ci);
-  everything else is planned, except where a section says "today". Phase 0 of the roadmap
+  check with the schema snapshot and the `db-change` notice (@updates-ci),
+  and the release pipeline with the release check (@updates-release; not
+  yet run on GitHub); everything else is planned, except where a section says "today". Phase 0 of the roadmap
   (@updates-roadmap) must be part of release 1.0.0, because a downgrade can
   only return to releases that already contain the mechanism.
 ]
@@ -30,10 +31,10 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-049, R-TECH-004 to R-TECH-007; decisio
   columns: (auto, 1fr),
   [Topic], [State],
   [Database updates], [The own update runner (@updates-runner) inside `Db::open`, at every start of `serve` and `create-admin`, with a snapshot before the work and an automatic restore on failure (@updates-start). The development migrations `0001`–`0010` are the first preview updates; databases that applied them are recognised once. No release update file exists yet.],
-  [Distribution], [No release, no tags, no published image. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
+  [Distribution], [No release, no tags, no published image yet. The release pipeline (@updates-release) publishes images, program archives and the GitHub release with the first release. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
   [Version], [0.1.0, written once as the workspace `version` of the root `Cargo.toml` (all crates inherit it). Implemented (phase 0): `musicus-server --version`, public `GET /api/version` and the "About Musicus" view print it; the title pages of the user guide and of this document take it from their build (`build.sh` → `typst --input version=…`), the guide site passes each release's version.],
   [Backup and restore], [`backup` writes a copy with `VACUUM INTO` without updating the database; `restore --from` puts a backup or snapshot back (@updates-backup).],
-  [Tests], [CI (`rust.yml`) on Linux x86_64 only.],
+  [Tests], [CI for pull requests (`rust.yml`) on Linux x86_64 only; the release pipeline tests, builds and starts the program on all five platforms.],
 )
 
 The development migrations were irrelevant for the plan (there are no
@@ -397,14 +398,15 @@ one update each. Implemented (R-OPS-023, R-OPS-024; details in
 The rules above are enforced by three checks. The database check and the
 `db-change` notice are implemented (workflow `Database`,
 `.github/workflows/database.yml`, jobs `db-check` and `db-change`); the
-release check comes with the release pipeline (@updates-release).
+release check is part of the release pipeline (@updates-release,
+`scripts/release-check.py`).
 
 #table(
   columns: (auto, 1fr, auto),
   [Check], [Fails (or reports) when], [Kind],
   [Database check (R-OPS-038)], [In a normal pull request: a database update file is added outside `migrations/preview/` (release updates are reserved for release pull requests); a released update or a preview already on `main` is modified or deleted (changes go into a new preview); the schema snapshot is outdated, or changed without a new preview.], [blocking],
   [`db-change` notice (R-OPS-039)], [A pull request adds a preview: label `db-change` and the note "This PR changes the database; the next release must be a minor release (x.Y.0), not a patch."], [informational],
-  [Release check (R-OPS-040)], [On `release/<version>`: a patch version with any preview or a database update for this version; a minor or major version whose merged update `migrations/<version>.sql` does not list exactly the removed previews, or with previews left.], [blocking],
+  [Release check (R-OPS-040)], [On `release/<version>`: a patch version with any preview, a database update for this version or any change under `migrations/`; a minor or major version whose merged update `migrations/<version>.sql` does not list exactly the removed previews, with previews left, or whose `releases.txt` did not gain exactly its line; in both cases a workspace version (or `Cargo.lock`) other than the branch's.], [blocking],
 )
 
 *Schema snapshot.* `scripts/db-schema.sh` creates an empty database with
@@ -466,7 +468,7 @@ Linux x86_64.
 The container image is built for linux/amd64 and linux/arm64 at least for
 every release (R-OPS-028).
 
-== Release pipeline (planned) <updates-release>
+== Release pipeline <updates-release>
 
 A release is built, checked and published by one pipeline that publishes
 nothing unless everything succeeded (R-OPS-049, user decision).
@@ -482,12 +484,23 @@ nothing unless everything succeeded (R-OPS-049, user decision).
   [By hand afterwards], [Tags `vX.Y.Z` in `docs/requirements`, `docs/technical` and `docs/user-guide` on the commits the release points to (R-OPS-036); no token for the documentation repositories in the pipeline.],
 )
 
-The website workflow of today (`user-guide-pages.yml`, started by a
-published release) becomes the last step of the pipeline; its manual test
-build stays. The warning of `build-guide-site.sh` when an older release's
-tag differs from its workspace version stays a warning; the blocking check
-is the one in stage 1. Until the pipeline exists, `RELEASING.md` lists the
-same steps to do by hand.
+*As built* (workflow `Release`, `.github/workflows/release.yml`; not yet
+run on GitHub):
+
+#table(
+  columns: (auto, 1fr),
+  [Part], [How],
+  [Start], [Dry run: a pull request from `release/X.Y.Z` into `main`. Real run: the push to `main` whose commit is the merge of such a pull request (looked up through the API; merge commit, squash or rebase). Not the "pull request closed" event: its runs belong to the pull request's merge reference, which the deployment rules of the guide site reject. Again: started by hand from `main` with the version (and optionally the commit, e.g. after a fix), or "re-run failed jobs".],
+  [Stage 1 jobs], [`checks` (release check, `db-schema.sh --check`, submodule pinning, agent docs, requirements, UI literals); `lint` (rustfmt, clippy, client tests); `web` (the release web client, built once); `program` per platform (Linux x86_64 and arm64, Windows x86_64, macOS arm64; macOS x86_64 not blocking): `cargo test`, release build, smoke test (`scripts/smoke-program.py`: start, web client, upload, a marking, `backup`, Ctrl+C, second start), archive; `image`; `docs` (both documents, title-page check, guide site with the new release); `assets` (`SHA256SUMS`, release notes from the section "Release notes" of the pull request). A gate job lets stage 2 start only if every job succeeded.],
+  [Image], [The `Dockerfile` target `release` puts the Linux programs built and tested in stage 1 into the runtime image, so the image runs exactly the downloadable program and nothing is compiled under emulation. Both platforms are started once before the multi-architecture image is kept as an OCI archive.],
+  [Stage 2], [Images: `X.Y.Z` pushed from that archive unless it exists already (never replaced), `X.Y` copied from it. Tag `vX.Y.Z`: kept if it is on the release commit, an error if elsewhere. GitHub release: created as a draft with every file, published at the end; a draft left by a failed run is completed. Guide site: `user-guide-pages.yml`, called by the pipeline, deploys the site built in stage 1; it no longer runs on a published release, its manual test build stays.],
+  [Registry], [Repository variables choose registry and image name; default `ghcr.io/musicus-sheets/musicus` with the workflow's own token; Docker Hub optional in addition.],
+)
+
+The warning of `build-guide-site.sh` when an older release's tag differs
+from its workspace version stays a warning; the blocking check is the one
+in stage 1. Every pull request still runs the platform-dependent checks on
+Linux x86_64 only (phase 1).
 
 #why[
   Publishing is the only part that cannot be taken back: an image tag that
@@ -502,13 +515,13 @@ same steps to do by hand.
 #table(
   columns: (auto, auto, auto, 1fr),
   [System], [Way], [Architecture], [State today → plan],
-  [Linux server or PC], [Docker Compose], [amd64], [Works with a local build → published image (R-OPS-028).],
-  [Raspberry Pi 3, 4, 5 or newer, 64-bit OS], [Docker Compose], [arm64], [Buildable (`docker buildx --platform linux/arm64`), never tested → published arm64 image; smoke test on a Pi (R-OPS-027).],
+  [Linux server or PC], [Docker Compose], [amd64], [Works with a local build; the release pipeline publishes the image (R-OPS-028) → Compose file of the release with a version tag.],
+  [Raspberry Pi 3, 4, 5 or newer, 64-bit OS], [Docker Compose], [arm64], [The release pipeline builds the arm64 image and starts it under emulation; never run on a Pi → smoke test on a Pi (R-OPS-027).],
   [Windows, macOS with Docker Desktop], [Docker Compose], [amd64, arm64], [Uses the Linux images → covered by multi-architecture images.],
   [Linux], [plain program], [x86_64, arm64], [Works; single file with the web client built in and the usual data folder (findings 3 and 4) → program download (R-OPS-029).],
-  [Windows], [plain program], [x86_64], [Upload blocker fixed (finding 1), single file and data folder done (findings 3 and 4), compiles, never run → CI, download.],
-  [macOS (Apple silicon)], [plain program], [arm64], [Never built → CI, download.],
-  [macOS (Intel), _should_], [plain program], [x86_64], [Never built → built and smoke-tested in CI, not a release blocker (R-OPS-042).],
+  [Windows], [plain program], [x86_64], [Upload blocker fixed (finding 1), single file and data folder done (findings 3 and 4); tested, built, smoke-tested and offered for download by the release pipeline (not yet run) → CI for every pull request.],
+  [macOS (Apple silicon)], [plain program], [arm64], [Release pipeline as for Windows (not yet run) → CI for every pull request.],
+  [macOS (Intel), _should_], [plain program], [x86_64], [Release pipeline, not a release blocker (R-OPS-042; not yet run).],
 )
 
 32-bit systems and Raspberry Pi models before the 3 are not supported.
@@ -516,7 +529,9 @@ Windows on ARM is not required (if it works, fine).
 
 === Program downloads
 
-Each published release offers program archives built by CI (R-OPS-029):
+Each published release offers program archives built by the release
+pipeline (R-OPS-029; `scripts/package-program.py`: the program, `LICENSE`
+and a short `README.txt` per archive):
 `linux-x86_64`, `linux-arm64`, `windows-x86_64` (`.zip`),
 `macos-arm64` and `macos-x86_64`, plus a `SHA256SUMS` file
 (`sha256sum -c SHA256SUMS`). The program contains the web client, so it
@@ -542,7 +557,7 @@ Program (about 99 USD a year) and notarisation.
   [2], [Graceful shutdown listens for SIGTERM only under `cfg(unix)`; Ctrl+C works everywhere. Fine as it is.], [none],
   [3], [The plain program needed the web client in a separate folder (`--web-dir`).], [done: built in with the feature `embed-web` (@deployment); `--web-dir` still overrides; the image uses it too],
   [4], [The default data directory was `data`, relative to the working directory, which depends on how the program is started.], [done: usual folder per OS (@deployment); an existing `./data` with a database is still used, with a warning; not yet run on Windows or macOS],
-  [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [platform-dependent checks on all systems, multi-arch images (R-OPS-032)],
+  [5], [CI builds and tests only on Linux x86_64; the image is built for the host architecture only.], [partly done: the release pipeline tests and builds on all systems and builds both images; every pull request still only on Linux x86_64 (R-OPS-032)],
   [6], [A blob is committed with "exists? else rename". On Windows a rename onto a file that is open (being served) fails, and two simultaneous uploads of the same new file race.], [done: "target exists" after a failed rename counts as success; still to test on Windows],
   [7], [The backup target path reached SQLite through `to_string_lossy`; a path that is not valid UTF-8 would have been changed.], [done: such paths are refused with a clear message],
   [8], [A Pi 3 has 1 GB of memory and is slow to compile Rust; performance targets were measured on a laptop, not on any Pi. Snapshots take space on the SD card.], [build elsewhere; measure on a Pi 3],
@@ -598,17 +613,17 @@ change with the user's consent.
   [0 (in 1.0)], [Own update runner with marker tables, additive/removal/rebuild parts, refusal message; preview folder, release merge script with verified simplification; the development migrations `0001`–`0010` as previews (done, @updates-runner; the 1.0.0 update is simplified by hand at the release)], [L],
   [0 (in 1.0)], [Snapshot before updates, automatic restore with restart guard, `backup` without updating, `restore` command (done, @updates-start, @updates-backup)], [M],
   [0 (in 1.0)], [`GET /api/version`, "About" view, version on the title pages from the release version (done)], [S],
-  [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; Compose file using a version tag; docs tags by hand], [M],
+  [0 (in 1.0)], [Release pipeline (@updates-release): dry run on the release pull request, real run on its merge; stage 1 builds and checks everything (version = branch, title pages, release check, images, archives, docs, guide site), stage 2 publishes images, tag, GitHub release, guide site; docs tags by hand (done, not yet run on GitHub). Open: Compose file using a version tag], [M],
   [0 (in 1.0)], [Open clients: event stream, listener before updates with `server_starting`, shutdown drain with grace and `server_shutting_down`, client banners, block-then-send, polling, unsaved annotations kept and re-sent, close warning, version change with reload at a safe moment (done, @updates-clients, F-OPS-008)], [M],
-  [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`) and `db-change` notice (done); release check on `release/<version>` branches (@updates-ci)], [M],
+  [0 (in 1.0)], [Database check with schema snapshot (`schema.sql`, `db-schema.sh`) and `db-change` notice (done); release check on `release/<version>` branches (done, @updates-ci)], [M],
   [0 (in 1.0)], [Done: fallback values for stored enums (@updates-fallbacks); release checklist line "patch: no new stored values"; Windows folder sync fix (findings 1 and 6); web client inside the program and OS data folder (findings 3 and 4, R-OPS-030, R-OPS-031; done early)], [S],
-  [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS; program archives with `SHA256SUMS`; user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],
+  [1], [Platform-dependent CI (tests, build, smoke) on Linux arm64, Windows and macOS for every pull request (the release pipeline does it already for releases, with the program archives and `SHA256SUMS`); user-guide text for SmartScreen and Gatekeeper (R-OPS-029 to R-OPS-032)], [M],
   [2], [Fixtures and the upgrade/downgrade test matrix (meaningful from the second release)], [M],
   [3], [Storage modules, file store interface, PDF engine module, conformance suites (F-TECH-002)], [L],
 )
 
-Open: the container registry and image name are decided when the release
-workflow is built (Docker Hub and/or GitHub Container Registry likely).
+Container registry and image name are repository variables of the release
+pipeline; default `ghcr.io/musicus-sheets/musicus`, Docker Hub optional.
 
 Not part of this plan: a portable export format, a second database or file
 store implementation.
