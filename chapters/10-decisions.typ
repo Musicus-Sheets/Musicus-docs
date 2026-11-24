@@ -402,14 +402,16 @@ the introduction.
    restricted item out of the structures the older release reads, so after
    a downgrade the item gives no access (less, never more) and does not
    come back. The server listens at once and answers "starting" until the
-   updates are done, and answers "shutting down" while it drains, so open
-   clients can explain what happens. Every start with pending work takes a
+   updates are done; on the stop signal it announces the stop on an event
+   stream, serves a short grace for the clients' last saves and then
+   answers "shutting down", so open clients can explain what happens. Every start with pending work takes a
    snapshot first and restores it on failure. Patch releases have no
    database changes. A small own update runner replaces `sqlx::migrate!`;
    it also merges the preview updates of development into one update per
    release. The runner, the window, the preview merge, the snapshots with
-   automatic restore and the backup and restore commands are implemented;
-   the start-up answers and the CI checks are not yet (see @updates).],
+   automatic restore, the backup and restore commands, the start-up and
+   shutdown answers for open clients and the database check in CI are
+   implemented; the release check is not yet (see @updates).],
   [Users can go back by starting the older image, which is the only step a
    volunteer can be expected to take. Keeping old structures until the
    window has passed costs a little disk space and the discipline of
