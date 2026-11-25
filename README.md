@@ -1,6 +1,6 @@
 # Musicus – technical documentation
 
-Architecture and component documentation of [Musicus](https://github.com/NelDav/Musicus),
+Architecture and component documentation of [Musicus](https://github.com/Musicus-Sheets/Musicus),
 written in [Typst](https://typst.app). It describes each component, its sub units,
 how they interact, and the reasons behind unusual design decisions.
 
