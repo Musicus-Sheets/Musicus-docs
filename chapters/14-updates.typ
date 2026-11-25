@@ -34,7 +34,7 @@ F-OPS-008, F-TECH-002, R-OPS-010 to R-OPS-049, R-TECH-004 to R-TECH-007; decisio
   [Distribution], [No release, no tags, no published image yet. The release pipeline (@updates-release) publishes images, program archives and the GitHub release with the first release. `compose.yaml` builds the image locally for the machine's own architecture (`build: .`).],
   [Version], [0.1.0, written once as the workspace `version` of the root `Cargo.toml` (all crates inherit it). Implemented (phase 0): `musicus-server --version`, public `GET /api/version` and the "About Musicus" view print it; the title pages of the user guide and of this document take it from their build (`build.sh` → `typst --input version=…`), the guide site passes each release's version.],
   [Backup and restore], [`backup` writes a copy with `VACUUM INTO` without updating the database; `restore --from` puts a backup or snapshot back (@updates-backup).],
-  [Tests], [CI for pull requests (`rust.yml`) on Linux x86_64 only; the release pipeline tests, builds and starts the program on all five platforms.],
+  [Tests], [CI for pull requests (`rust.yml` for format and lint, `tests.yml` for the tests with report and coverage) on Linux x86_64 only; the release pipeline tests, builds and starts the program on all five platforms.],
 )
 
 The development migrations were irrelevant for the plan (there are no
