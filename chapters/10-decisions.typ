@@ -286,6 +286,24 @@ the introduction.
    debug image.],
 )
 
+== One-time Docker choices in the override file <a-compose-override>
+
+#decision(
+  [Docker setups often expose every option, including the container user
+   and the data location, as environment variables in `.env`.],
+  [`.env` only holds settings that may change at any time. Choices made once,
+   publishing on specific addresses and keeping the data in a host folder
+   (running as the administrator's own user, bind mount with
+   `create_host_path: false`), go into the administrator's own
+   `compose.override.yaml`; `compose.override.example.yaml` shows both.],
+  [A variable suggests it is safe to change later. Changing the user or the
+   data location afterwards leaves the data unreadable or behind unless it
+   is moved or given to the new user first.],
+  [The image keeps its unprivileged user 65532 and the named volume as the
+   default; the override is for administrators who want plain files on the
+   host. Compose 2.24 or newer is needed for `ports: !override`.],
+)
+
 == Management inside the regular views <d-inline-management>
 
 #decision(
